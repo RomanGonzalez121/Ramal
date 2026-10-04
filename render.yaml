@@ -1,0 +1,48 @@
+# Plano de Render (https://render.com/docs/blueprint-spec): un servicio web gratuito que usa el Dockerfile.
+# La base MySQL no se declara acá porque Render no ofrece MySQL gratis: va en Aiven (ver docs/despliegue.md).
+# Los valores marcados con `sync: false` se cargan a mano en el panel de Render, nunca en el repositorio.
+services:
+  - type: web
+    name: ramal
+    runtime: docker
+    plan: free
+    healthCheckPath: /up
+    envVars:
+      - key: APP_NAME
+        value: Ramal
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: "false"
+      - key: APP_KEY
+        sync: false
+      - key: APP_URL
+        sync: false
+      - key: DB_CONNECTION
+        value: mysql
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        sync: false
+      - key: DB_DATABASE
+        sync: false
+      - key: DB_USERNAME
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_CA_PEM
+        sync: false
+      - key: SESSION_DRIVER
+        value: database
+      - key: CACHE_STORE
+        value: database
+      - key: QUEUE_CONNECTION
+        value: database
+      - key: BROADCAST_CONNECTION
+        value: log
+      - key: RAMAL_SIEMPRE_EN_SERVICIO
+        value: "true"
+      - key: RAMAL_MOSTRAR_CUENTA_DEMO
+        value: "true"
+      - key: RAMAL_OPERADOR_PASSWORD
+        sync: false

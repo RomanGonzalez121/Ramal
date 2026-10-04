@@ -12,7 +12,21 @@ Ramal se publica como **un solo contenedor** (`Dockerfile`): el servidor web, el
 | Base MySQL 8 | Aparte. Los planes gratuitos de web casi nunca incluyen MySQL: hay que usar una base externa (por ejemplo, un MySQL gratuito de otro proveedor) |
 | Servidor de WebSockets (Reverb) | Opcional. Necesita un proceso siempre prendido, que el plan gratuito no da |
 
-Todavía **no se eligió el proveedor concreto** (ver `CLAUDE.md`, pendientes).
+## Elegido: Render (web, gratis) más Aiven (MySQL, gratis)
+
+Datos verificados el 4 de octubre de 2026 en la documentación de cada uno:
+
+- **Render, plan gratuito:** el servicio web se duerme tras 15 minutos sin tráfico y tarda cerca de un minuto en despertar; tiene 750 horas por mes. **No ofrece MySQL gratis**: su base gratuita es PostgreSQL y se borra a los 30 días. Por eso la base va en otro lado. (La documentación consultada no aclara si el plan gratuito acepta imágenes de Docker; hay que confirmarlo al crear el servicio. Si no las aceptara, habría que pasar al plan más barato.)
+- **Aiven, plan gratuito de MySQL:** 1 CPU, 1 GB de memoria y 1 GB de almacenamiento, sin vencimiento ni tarjeta. Ramal usa unos 10 MB para 48 horas de historial.
+
+### Pasos
+
+1. En Aiven, crear un servicio **MySQL** gratuito, en la región más cercana a la de Render. Copiar el host, el puerto, la base, el usuario, la contraseña y el contenido del certificado de la CA.
+2. En Render: *New, Blueprint*, elegir este repositorio. Lee `render.yaml`.
+3. Completar las variables que quedan en blanco: `APP_KEY` (con `php artisan key:generate --show`), `APP_URL` (la dirección que dé Render), los datos de la base, `DB_CA_PEM` (el certificado, pegado tal cual) y `RAMAL_OPERADOR_PASSWORD`.
+4. La primera vez, el contenedor migra y carga las líneas solo. Mirar los registros de Render si algo falla.
+
+Para el WebSocket completo en esta combinación no alcanza el plan gratuito (hace falta un proceso siempre prendido); la demo funciona con la consulta cada 2 segundos.
 
 ## Variables de entorno del contenedor
 
