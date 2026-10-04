@@ -12,8 +12,7 @@ fi
 # Las bases gestionadas (Aiven, TiDB) exigen SSL con su propio certificado. Se pasa su contenido en DB_CA_PEM
 # (así no hay un archivo con claves en el repositorio) y acá se guarda donde Laravel lo busca.
 if [ -n "$DB_CA_PEM" ]; then
-    printf '%s
-' "$DB_CA_PEM" > /etc/ssl/ramal-db-ca.pem
+    echo "$DB_CA_PEM" > /etc/ssl/ramal-db-ca.pem
     export MYSQL_ATTR_SSL_CA=/etc/ssl/ramal-db-ca.pem
 fi
 
