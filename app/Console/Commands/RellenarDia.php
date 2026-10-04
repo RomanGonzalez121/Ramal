@@ -2,109 +2,82 @@
 
 namespace App\Console\Commands;
 
-use App\Models\Colectivo;
+use App\Models\HistorialPosicion;
 use App\Models\Incidente;
+use App\Models\Posicion;
 use App\Models\Simulacion;
 use App\Simulacion\ServicioSimulacion;
-use App\Simulacion\Simulador;
 use Illuminate\Console\Command;
-use Illuminate\Support\Carbon;
 
 /**
- * Rellena las horas de hoy anteriores a que arrancara la simulación en vivo, para que el panel de operador
- * tenga un día completo que mostrar. Corre el mismo simulador de siempre, a alta velocidad y sin tocar
- * las posiciones actuales. Los incidentes quedan marcados con origen "relleno".
+ * Rehace el día de hoy: corre el simulador a alta velocidad desde la hora elegida hasta ahora, sin emitir nada.
+ * Deja, de una sola vez y de forma coherente:
+ *  - el historial para rebobinar (una foto cada 10 s),
+ *  - los incidentes de hoy (con su ciclo completo) para el centro de control,
+ *  - y las posiciones actuales, que quedan donde terminó la corrida: la simulación en vivo sigue desde ahí.
+ *
+ * Es lo mismo que haría el servidor si hubiera estado prendido todo el día.
  */
 class RellenarDia extends Command
 {
     protected $signature = 'ramal:rellenar-dia
-        {--desde=05:30 : Hora de Paraná desde la que se rellena}
-        {--rehacer : Borra el relleno de hoy y lo vuelve a generar}';
+        {--desde=05:30 : Hora de Paraná desde la que se rehace}
+        {--paso=10 : Segundos simulados por cada paso}
+        {--forzar : Seguir aunque la simulación en vivo esté corriendo}';
 
-    protected $description = 'Genera los incidentes de las horas de hoy anteriores al arranque de la simulación en vivo';
+    protected $description = 'Rehace el día de hoy: historial, incidentes y posiciones, corriendo el simulador a alta velocidad';
 
     public function handle(ServicioSimulacion $servicio): int
     {
+        $sim = Simulacion::actual();
+
+        if (! $this->option('forzar') && $sim->ultimo_tick_en && abs($sim->ultimo_tick_en->diffInSeconds(now())) < 15) {
+            $this->error('La simulación en vivo está corriendo. Detenela primero (o usá --forzar): las dos se pisarían las posiciones.');
+
+            return self::FAILURE;
+        }
+
         $zona = config('ramal.zona_horaria');
-        $ahora = now();
-        $inicioDia = $ahora->copy()->setTimezone($zona)->startOfDay()->setTimezone('UTC');
+        $ahora = now()->utc();
+        $inicioDia = $ahora->copy()->setTimezone($zona)->startOfDay()->utc();
+        $desde = $ahora->copy()->setTimezone($zona)->setTimeFromTimeString($this->option('desde'))->utc();
 
-        if ($this->option('rehacer')) {
-            $borrados = Incidente::where('origen', 'relleno')->where('inicio_en', '>=', $inicioDia)->delete();
-            $this->info("Se borraron {$borrados} incidentes de relleno.");
+        if ($desde->greaterThanOrEqualTo($ahora)) {
+            // Todavía no es la hora pedida: se rehace desde hace 3 horas.
+            $desde = $ahora->copy()->subHours(3);
+            $this->warn('Todavía no son las '.$this->option('desde').'; se rehacen las últimas 3 horas.');
         }
 
-        $desde = $ahora->copy()->setTimezone($zona)->setTimeFromTimeString($this->option('desde'))->setTimezone('UTC');
-        $primero = Incidente::where('origen', 'simulacion')->where('inicio_en', '>=', $inicioDia)->min('inicio_en');
-        $hasta = $primero ? Carbon::parse($primero, 'UTC') : $ahora;
+        $paso = (float) $this->option('paso');
+        $pasos = (int) floor($desde->diffInSeconds($ahora) / $paso);
 
-        if ($hasta->lessThanOrEqualTo($desde)) {
-            $this->warn('No hay horas anteriores para rellenar.');
+        $this->info("Rehaciendo {$pasos} pasos de {$paso} s, desde ".$desde->copy()->setTimezone($zona)->format('H:i').' hasta ahora.');
 
-            return self::SUCCESS;
+        // Se empieza de cero: historial, incidentes de hoy y posiciones.
+        HistorialPosicion::query()->delete();
+        Incidente::where('inicio_en', '>=', $inicioDia)->delete();
+        Posicion::query()->delete();
+        $sim->update(['tick' => 0, 'ultimo_tick_en' => null]);
+
+        $servicio->reiniciarHistorial();
+        $servicio->preparar();
+        $servicio->origenIncidentes = 'relleno';
+
+        $barra = $this->output->createProgressBar($pasos);
+        $barra->start();
+
+        for ($i = 1; $i <= $pasos; $i++) {
+            $servicio->tick($paso, $desde->copy()->addSeconds($i * $paso), emitir: false);
+            $barra->advance();
         }
 
-        if (Incidente::where('origen', 'relleno')->where('inicio_en', '>=', $inicioDia)->exists()) {
-            $this->warn('Ya hay relleno de hoy. Usá --rehacer para generarlo de nuevo.');
+        $barra->finish();
+        $this->newLine();
 
-            return self::SUCCESS;
-        }
+        $servicio->origenIncidentes = 'simulacion';
 
-        $semilla = Simulacion::actual()->semilla;
-        $simulador = new Simulador($semilla, $servicio->rutas());
-        $colectivos = Colectivo::with('linea.ramales')->orderBy('interno')->get()->groupBy('linea_id');
-
-        $paso = 10.0;
-        $ticks = (int) floor($desde->diffInSeconds($hasta) / $paso);
-        $filas = [];
-
-        foreach ($colectivos as $deLaLinea) {
-            foreach ($deLaLinea->values() as $indice => $colectivo) {
-                $ida = $colectivo->linea->ramales->firstWhere('sentido', 'ida');
-                $estado = $simulador->estadoInicial($colectivo->id, $ida->id, $indice, $deLaLinea->count());
-                $abierto = null;
-
-                for ($t = 1; $t <= $ticks; $t++) {
-                    // Los números de tick de acá no se pisan con los de la simulación en vivo.
-                    [$estado, $eventos] = $simulador->avanzar($estado, 5_000_000 + $t, $paso);
-                    $momento = $desde->copy()->addSeconds($t * $paso);
-
-                    foreach ($eventos as $evento) {
-                        if ($evento['tipo'] === 'nuevo') {
-                            $abierto = ['tipo' => $evento['incidente'], 'inicio' => $momento, 'duracion' => (int) $evento['duracion_s']];
-                        } elseif ($abierto) {
-                            $filas[] = $this->fila($colectivo->id, $abierto, $momento);
-                            $abierto = null;
-                        }
-                    }
-                }
-
-                // Lo que seguía abierto al llegar al límite no se guarda: lo toma la simulación en vivo.
-            }
-        }
-
-        foreach (array_chunk($filas, 200) as $lote) {
-            Incidente::insert($lote);
-        }
-
-        $this->info(count($filas).' incidentes generados entre '.$desde->setTimezone($zona)->format('H:i').' y '.$hasta->setTimezone($zona)->format('H:i').'.');
+        $this->info(HistorialPosicion::count().' fotos del historial, '.Incidente::where('inicio_en', '>=', $inicioDia)->count().' incidentes de hoy.');
 
         return self::SUCCESS;
-    }
-
-    /** @param array{tipo: string, inicio: Carbon, duracion: int} $abierto */
-    private function fila(int $colectivoId, array $abierto, Carbon $fin): array
-    {
-        return [
-            'colectivo_id' => $colectivoId,
-            'tipo' => $abierto['tipo'],
-            'estado' => 'resuelto',
-            'origen' => 'relleno',
-            'duracion_prevista_s' => $abierto['duracion'],
-            'inicio_en' => $abierto['inicio'],
-            'fin_en' => $fin,
-            'created_at' => $abierto['inicio'],
-            'updated_at' => $fin,
-        ];
     }
 }

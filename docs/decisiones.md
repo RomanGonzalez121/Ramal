@@ -160,3 +160,19 @@ Pendiente de sentir en pantalla (no se puede juzgar solo leyendo el código): la
 
 - 161 tests de PHP contra MySQL 8.4 y 28 de JavaScript.
 - Pasada de uniformidad estética (pedido de Román): el ingreso de operador, el centro de control, el tablero del mapa público y la página de líneas comparten ahora el mismo lenguaje (tablero luminoso en Doto sobre trama de calles, doble línea amarilla, estados con ícono y forma, entrada escalonada, respuesta al apretar).
+
+## M8-1. Historial en formato binario compacto
+
+- **Problema:** rebobinar el día exige guardar dónde estaba cada colectivo, y 40 colectivos cada pocos segundos son miles de filas por hora.
+- **Se eligió:** una fila por **foto** (no por colectivo) en `historial_posiciones`, con un campo binario de 15 bytes por colectivo (`Instantanea`): id y ramal en 16 bits, longitud y latitud en enteros de 32 bits por 10⁶ (11 cm de resolución), rumbo en 16 bits y estado en 8. Una foto de 40 colectivos pesa 600 bytes; un día completo (cada 10 s) queda alrededor de 5 MB.
+- **Cada 10 segundos por reloj, no por tick:** si se cambiara la velocidad del simulador el historial no se estiraría ni se aplastaría.
+- **Retención:** 48 horas (`RAMAL_HISTORIAL_RETENCION`), con limpieza horaria (`ramal:limpiar-historial`) y test de que la base no crece sin límite.
+- **Se descartó:** una fila por colectivo y foto (40 veces más filas), guardar JSON (7 veces más pesado) y guardar solo cambios (complica la lectura de cualquier instante).
+
+## M8-2. Cómo se rebobina en el navegador
+
+- **API:** `/api/historial/rango` dice qué hay guardado; `/api/historial?desde=&hasta=` devuelve ventanas de hasta 15 minutos. Lo ya pasado se cachea 5 minutos; lo reciente, 2 segundos.
+- **El cliente pide ventanas de 10 minutos** y adelanta la siguiente cuando se acerca al borde o se va rápido. El `Reproductor` interpola entre dos fotos como el modo en vivo, así que arrastrar la línea hacia atrás, hacia adelante o reproducir a 60× mueve a los colectivos de forma continua. Si cambia el ramal o hay un salto de más de 400 m, el colectivo se corta ahí en vez de cruzar el mapa; los huecos de más de 2,5 pasos no se rellenan (se avisa "No se guardó registro de este momento").
+- **Mientras se mira el pasado** el tiempo real queda en pausa, los desvíos de ahora se ocultan y las llegadas dicen que son solo en vivo. "Volver al vivo" pide la foto actual y retoma el tiempo real.
+- **Se descartó:** mostrar las llegadas del pasado (habría que guardar las estimaciones también) y bajar el día completo de una vez.
+- **`ramal:rellenar-dia` ahora también rehace el historial** del día (corre el simulador a alta velocidad desde las 05:30, tarda unos 17 minutos para el día completo con el paso de 10 s). Se niega a correr si el simulador en vivo escribió en los últimos 15 s.

@@ -9,3 +9,6 @@ Schedule::command('ramal:simular --durante=58')
     ->everyMinute()
     ->withoutOverlapping(2)
     ->runInBackground();
+
+// Retención del historial (M8): una vez por hora se borra lo que pasó de las horas que se conservan.
+Schedule::command('ramal:limpiar-historial')->hourly();

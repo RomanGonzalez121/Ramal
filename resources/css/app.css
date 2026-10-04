@@ -452,6 +452,65 @@ button:not(:disabled):not(.bus-mapa):not(.parada-mapa):active {
     }
 }
 
+/* Línea de tiempo del rebobinado (M8): el carril de la calzada con su línea de puntos y, de manija, un cartel de parada */
+.linea-de-tiempo {
+    appearance: none;
+    -webkit-appearance: none;
+    display: block;
+    width: 100%;
+    height: 34px;
+    margin: 0;
+    background: transparent;
+    cursor: pointer;
+}
+
+.linea-de-tiempo::-webkit-slider-runnable-track {
+    height: 10px;
+    border-radius: 2px;
+    background:
+        repeating-linear-gradient(90deg, var(--senal) 0 12px, transparent 12px 24px) center / 100% 2px no-repeat,
+        color-mix(in srgb, var(--papel) 14%, var(--asfalto));
+}
+
+.linea-de-tiempo::-moz-range-track {
+    height: 10px;
+    border-radius: 2px;
+    background:
+        repeating-linear-gradient(90deg, var(--senal) 0 12px, transparent 12px 24px) center / 100% 2px no-repeat,
+        color-mix(in srgb, var(--papel) 14%, var(--asfalto));
+}
+
+.linea-de-tiempo::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 22px;
+    height: 32px;
+    margin-top: -11px;
+    border: 3px solid var(--asfalto);
+    border-radius: 3px;
+    background: var(--senal);
+    box-shadow: 3px 3px 0 color-mix(in srgb, var(--papel) 35%, transparent);
+}
+
+.linea-de-tiempo::-moz-range-thumb {
+    width: 16px;
+    height: 26px;
+    border: 3px solid var(--asfalto);
+    border-radius: 3px;
+    background: var(--senal);
+    box-shadow: 3px 3px 0 color-mix(in srgb, var(--papel) 35%, transparent);
+}
+
+.linea-de-tiempo:focus-visible {
+    outline: 3px solid var(--senal);
+    outline-offset: 4px;
+    box-shadow: none;
+}
+
+.bus-mapa[hidden] {
+    display: none;
+}
+
 /* Pantalla de ingreso: los elementos entran de a uno, una sola vez, con 60 ms entre cada uno */
 @keyframes entra-campo {
     from { transform: translateY(10px); opacity: 0; }

@@ -11,6 +11,7 @@ import { Protocol } from 'pmtiles';
 import { Interpolador } from '../interpolador.js';
 import { DURACION, EASE_OUT } from '../movimiento.js';
 import { Celdas } from './celdas.js';
+import { Reproductor } from './reproductor.js';
 import { cambiarSeleccion, crearEstilo, desviosGeoJSON, recorridosGeoJSON } from './estilo.js';
 import { crearEchoReverb, TiempoReal } from './tiempo-real.js';
 
@@ -99,6 +100,7 @@ export async function crearMapa({ contenedor, capa, svgRuta, ganchos }) {
     const alCambiarMovimiento = (e) => (interpolador.saltar = e.matches);
     menosMovimiento.addEventListener('change', alCambiarMovimiento);
     const buses = new Map(); // id -> { nodo, cuerpo, insignia, meta }
+    let modo = 'vivo'; // 'vivo' o 'pasado' (M8: rebobinar)
     let lineaElegida = null;
     let colectivoElegido = null;
 
@@ -147,7 +149,7 @@ export async function crearMapa({ contenedor, capa, svgRuta, ganchos }) {
         };
     }
 
-    function actualizarBus(bus, c) {
+    function actualizarBus(bus, c, silencioso = false) {
         const previo = bus.meta.estado;
         bus.meta = c;
         bus.nodo.dataset.estado = c.estado;
@@ -159,11 +161,12 @@ export async function crearMapa({ contenedor, capa, svgRuta, ganchos }) {
             bus.insignia.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="square" aria-hidden="true"><use href="#i-${icono}"/></svg>`;
         }
 
-        if (previo !== 'en_parada' && c.estado === 'en_parada') pulsarParadaCercana(bus);
+        if (!silencioso && previo !== 'en_parada' && c.estado === 'en_parada') pulsarParadaCercana(bus);
         if (colectivoElegido === c.id) ganchos.alSeleccionarColectivo?.(describir(c));
     }
 
     function alMensaje(colectivos, tick, origen) {
+        if (modo === 'pasado') return; // mientras se mira el pasado, el tiempo real queda en pausa
         const ahora = performance.now();
 
         for (const c of colectivos) {
@@ -198,6 +201,7 @@ export async function crearMapa({ contenedor, capa, svgRuta, ganchos }) {
                 interpolador.actualizar(c.id, ruta, ahora);
             }
 
+            bus.nodo.hidden = false;
             actualizarBus(bus, c);
         }
 
@@ -301,18 +305,24 @@ export async function crearMapa({ contenedor, capa, svgRuta, ganchos }) {
         if (!activo) return;
         requestAnimationFrame(pintar);
 
-        duraciones.push(ahora - ultimoCuadro);
+        const delta = ahora - ultimoCuadro;
+        duraciones.push(delta);
         if (duraciones.length > 120) duraciones.shift();
         ultimoCuadro = ahora;
 
         const escala = escalaPorZoom();
 
-        for (const [id, bus] of buses) {
-            const pos = interpolador.posicion(id, ahora);
-            if (!pos) continue;
-            const { x, y } = mapa.project(aGeo(pos));
-            bus.nodo.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) scale(${escala.toFixed(2)})`;
-            bus.cuerpo.style.transform = `rotate(${pos.rumbo.toFixed(1)}deg)`;
+        if (modo === 'pasado') {
+            avanzarPasado(delta, ahora);
+            pintarPasado(escala);
+        } else {
+            for (const [id, bus] of buses) {
+                const pos = interpolador.posicion(id, ahora);
+                if (!pos) continue;
+                const { x, y } = mapa.project(aGeo(pos));
+                bus.nodo.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) scale(${escala.toFixed(2)})`;
+                bus.cuerpo.style.transform = `rotate(${pos.rumbo.toFixed(1)}deg)`;
+            }
         }
 
         if (rutaSucia) {
@@ -336,6 +346,207 @@ export async function crearMapa({ contenedor, capa, svgRuta, ganchos }) {
     mapa.on('move', () => (rutaSucia = true));
     mapa.on('resize', () => (rutaSucia = true));
     requestAnimationFrame(pintar);
+
+    // ---------- rebobinar: ver el día como un video (M8) ----------
+    //
+    // El servidor guarda una foto cada 10 s. Acá se piden por ventanas de 10 minutos y el Reproductor calcula dónde
+    // estaba cada colectivo en cualquier instante entre dos fotos, así que arrastrar la línea de tiempo (en cualquier
+    // sentido) o reproducir a 60x mueve a los colectivos de forma continua.
+
+    const VENTANA_MS = 10 * 60 * 1000;
+    const colectivosPorId = new Map(datos.colectivos.map((c) => [c.id, c]));
+    const reproductor = new Reproductor({ paso: 10 });
+    let tPasado = 0; // el instante que se está mostrando, en ms
+    let reproduciendo = false;
+    let velocidadPasado = 4;
+    let rangoHistorial = null; // { desde, hasta } en ms
+    const ventanas = new Map(); // número de ventana -> { promesa, pedidaEn }
+    let ultimoAvisoTiempo = 0;
+    let cargandoPasado = false;
+    let sinRegistroAviso = false;
+
+    async function pedirRango() {
+        const r = await fetch('/api/historial/rango').then((x) => x.json());
+        rangoHistorial = r.desde ? { desde: Date.parse(r.desde), hasta: Date.parse(r.hasta) } : null;
+        if (r.paso_s) reproductor.paso = r.paso_s * 1000;
+        ganchos.alRangoHistorial?.(rangoHistorial);
+        return rangoHistorial;
+    }
+
+    /** Pide (una sola vez) las fotos de la ventana de 10 minutos número `k`. Las que llegan hasta ahora se vuelven a pedir. */
+    function pedirVentana(k) {
+        const inicio = k * VENTANA_MS;
+        if (inicio > Date.now()) return Promise.resolve();
+
+        const previa = ventanas.get(k);
+        const abierta = (k + 1) * VENTANA_MS > Date.now() - 60000; // todavía le llegan fotos nuevas
+        if (previa && (!abierta || Date.now() - previa.pedidaEn < 10000)) return previa.promesa;
+
+        const url = `/api/historial?desde=${new Date(inicio - 30000).toISOString()}&hasta=${new Date(inicio + VENTANA_MS + 30000).toISOString()}`;
+        const promesa = fetch(url)
+            .then((r) => r.json())
+            .then((d) => {
+                reproductor.estados = d.estados;
+                reproductor.agregar(d.fotos);
+            })
+            .catch(() => ventanas.delete(k));
+        ventanas.set(k, { promesa, pedidaEn: Date.now() });
+        return promesa;
+    }
+
+    /** Se asegura de tener las fotos del instante `t`, de la ventana siguiente (para que no se corte) y, si hace falta, de la anterior. */
+    async function asegurarDatos(t) {
+        const k = Math.floor(t / VENTANA_MS);
+        const dentro = (t % VENTANA_MS) / VENTANA_MS;
+        const pedidos = [pedirVentana(k)];
+        if (dentro > 0.6 || velocidadPasado >= 16) pedidos.push(pedirVentana(k + 1));
+        if (dentro < 0.1) pedidos.push(pedirVentana(k - 1));
+        await Promise.all(pedidos);
+    }
+
+    function limitar(t) {
+        return rangoHistorial ? Math.min(rangoHistorial.hasta, Math.max(rangoHistorial.desde, t)) : t;
+    }
+
+    function entrarAlPasado() {
+        if (modo === 'pasado') return;
+        modo = 'pasado';
+        for (const id of buses.keys()) interpolador.quitar(id);
+        for (const capaDesvio of ['desvios', 'desvios-borde']) {
+            if (mapa.getLayer(capaDesvio)) mapa.setLayoutProperty(capaDesvio, 'visibility', 'none'); // los desvíos de ahora no son los de entonces
+        }
+        ganchos.alModo?.('pasado');
+    }
+
+    /** Muestra el instante `t` (ms). Si todavía no se había entrado al pasado, entra. */
+    async function irA(t) {
+        if (!rangoHistorial) await pedirRango();
+        if (!rangoHistorial) {
+            ganchos.alSinHistorial?.();
+            return false;
+        }
+
+        entrarAlPasado();
+        tPasado = limitar(t);
+        ganchos.alTiempoPasado?.(tPasado);
+
+        if (!reproductor.cubre(tPasado)) {
+            cargandoPasado = true;
+            ganchos.alCargandoHistorial?.(true);
+            await asegurarDatos(tPasado);
+            cargandoPasado = false;
+            ganchos.alCargandoHistorial?.(false);
+        } else {
+            asegurarDatos(tPasado);
+        }
+        return true;
+    }
+
+    async function rebobinar(minutosAtras = 10) {
+        await pedirRango();
+        if (!rangoHistorial) {
+            ganchos.alSinHistorial?.();
+            return false;
+        }
+        reproduciendo = false;
+        const ok = await irA(rangoHistorial.hasta - minutosAtras * 60000);
+        if (ok) cambiarReproduccion(true);
+        return ok;
+    }
+
+    function cambiarReproduccion(valor) {
+        reproduciendo = valor;
+        ganchos.alReproduciendo?.(valor);
+    }
+
+    async function volverAlVivo() {
+        if (modo === 'vivo') return;
+        modo = 'vivo';
+        cambiarReproduccion(false);
+        for (const capaDesvio of ['desvios', 'desvios-borde']) {
+            if (mapa.getLayer(capaDesvio)) mapa.setLayoutProperty(capaDesvio, 'visibility', 'visible');
+        }
+        sinRegistroAviso = false;
+        ganchos.alSinRegistro?.(false);
+        ganchos.alModo?.('vivo');
+
+        // Se vuelve a la foto actual: se parte de cero para que no queden colectivos del pasado.
+        const actual = await fetch('/api/posiciones').then((r) => r.json());
+        for (const id of buses.keys()) interpolador.quitar(id);
+        alMensaje(actual.colectivos, actual.tick, 'foto');
+        const vigentes = new Set(actual.colectivos.map((c) => c.id));
+        for (const [id, bus] of buses) {
+            if (!vigentes.has(id)) {
+                bus.nodo.remove();
+                buses.delete(id);
+            }
+        }
+        ganchos.alCantidad?.(buses.size);
+    }
+
+    /** Hace avanzar el tiempo del pasado según la velocidad elegida, esperando si faltan datos. */
+    function avanzarPasado(delta, ahora) {
+        if (reproduciendo) {
+            const siguiente = tPasado + delta * velocidadPasado;
+
+            if (reproductor.cubre(siguiente) || reproductor.cubre(tPasado) === false) {
+                tPasado = siguiente;
+            } else {
+                asegurarDatos(siguiente); // faltan fotos: se espera a que lleguen
+            }
+
+            if (rangoHistorial && tPasado >= rangoHistorial.hasta) {
+                tPasado = rangoHistorial.hasta;
+                const alDia = Date.now() - rangoHistorial.hasta < 40000;
+                cambiarReproduccion(false);
+                if (alDia) volverAlVivo();
+            }
+
+            // Antes de que se acaben las fotos de adelante, se piden las que siguen.
+            if (reproductor.cubiertoHasta(tPasado) - tPasado < 120000 * Math.max(1, velocidadPasado / 4)) {
+                asegurarDatos(tPasado + 120000 * Math.max(1, velocidadPasado / 4));
+            }
+        }
+
+        if (ahora - ultimoAvisoTiempo > 100) {
+            ultimoAvisoTiempo = ahora;
+            ganchos.alTiempoPasado?.(tPasado);
+        }
+    }
+
+    function pintarPasado(escala) {
+        const estaban = reproductor.en(tPasado);
+        const vistos = new Set();
+
+        for (const c of estaban) {
+            const meta = colectivosPorId.get(c.id);
+            if (!meta) continue;
+            vistos.add(c.id);
+
+            const bus = buses.get(c.id) ?? crearBus({ ...meta, ramal: c.ramal, estado: c.estado, rumbo: c.rumbo, velocidad: 0 });
+            bus.nodo.hidden = false;
+            if (bus.meta.estado !== c.estado) actualizarBus(bus, { ...bus.meta, ramal: c.ramal, estado: c.estado, rumbo: c.rumbo }, true);
+
+            const { x, y } = mapa.project([c.lon, c.lat]);
+            bus.nodo.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) scale(${escala.toFixed(2)})`;
+            bus.cuerpo.style.transform = `rotate(${c.rumbo.toFixed(1)}deg)`;
+        }
+
+        for (const [id, bus] of buses) {
+            if (!vistos.has(id)) bus.nodo.hidden = true;
+        }
+        ganchos.alCantidad?.(vistos.size);
+        const vacio = vistos.size === 0 && !cargandoPasado;
+        if (vacio !== sinRegistroAviso) {
+            sinRegistroAviso = vacio;
+            ganchos.alSinRegistro?.(vacio);
+        }
+    }
+
+    // Mientras se mira el pasado, el rango crece (llegan fotos nuevas): se actualiza para que la línea de tiempo llegue hasta ahora.
+    const relojRango = setInterval(() => {
+        if (modo === 'pasado') pedirRango();
+    }, 30000);
 
     // ---------- desvíos en curso: el camino alternativo que están haciendo los colectivos fuera de recorrido ----------
 
@@ -374,7 +585,7 @@ export async function crearMapa({ contenedor, capa, svgRuta, ganchos }) {
     mapa.on('moveend', () => tiempoReal.establecerVista(vistaActual()));
 
     // Si no llega nada durante un rato, la interfaz lo dice en vez de mostrar colectivos congelados.
-    const vigilante = setInterval(() => ganchos.alSinNovedades?.(performance.now() - ultimoMensaje > 12000), 2000);
+    const vigilante = setInterval(() => ganchos.alSinNovedades?.(modo === 'vivo' && performance.now() - ultimoMensaje > 12000), 2000);
 
     // ---------- tema ----------
 
@@ -440,9 +651,19 @@ export async function crearMapa({ contenedor, capa, svgRuta, ganchos }) {
         acercar: () => mapa.zoomIn({ duration: prefiereMenosMovimiento() ? 0 : DURACION.zoom }),
         alejar: () => mapa.zoomOut({ duration: prefiereMenosMovimiento() ? 0 : DURACION.zoom }),
         medir,
+        rebobinar,
+        irA,
+        volverAlVivo,
+        reproducir: () => cambiarReproduccion(true),
+        pausar: () => cambiarReproduccion(false),
+        velocidad(v) {
+            velocidadPasado = v;
+            ganchos.alVelocidad?.(v);
+        },
         destruir() {
             activo = false;
             clearInterval(vigilante);
+            clearInterval(relojRango);
             clearInterval(relojDesvios);
             observador.disconnect();
             medios.removeEventListener('change', aplicarTema);

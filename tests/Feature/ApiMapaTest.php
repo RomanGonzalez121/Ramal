@@ -28,6 +28,8 @@ class ApiMapaTest extends TestCase
 
         $respuesta->assertJsonCount(5, 'lineas')
             ->assertJsonCount(11, 'paradas')
+            ->assertJsonCount(40, 'colectivos')
+            ->assertJsonStructure(['colectivos' => [['id', 'interno', 'linea']]])
             ->assertJsonPath('celdas.columnas', 4)
             ->assertJsonPath('lineas.0.numero', 1)
             ->assertJsonCount(2, 'lineas.0.ramales');

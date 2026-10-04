@@ -3,7 +3,9 @@
 namespace App\Simulacion;
 
 use App\Events\PosicionesActualizadas;
+use App\Historial\Instantanea;
 use App\Models\Colectivo;
+use App\Models\HistorialPosicion;
 use App\Models\Horario;
 use App\Models\Incidente;
 use App\Models\Posicion;
@@ -25,6 +27,14 @@ class ServicioSimulacion
     private ?Simulador $simulador = null;
 
     private Celdas $celdas;
+
+    /** De dónde vienen los incidentes que se crean: 'simulacion' en vivo, 'relleno' al rehacer el día. */
+    public string $origenIncidentes = 'simulacion';
+
+    /** Momento de la última foto del historial (se carga de la base la primera vez). */
+    private ?Carbon $ultimaFoto = null;
+
+    private bool $ultimaFotoCargada = false;
 
     public function __construct()
     {
@@ -55,10 +65,11 @@ class ServicioSimulacion
 
     /**
      * Avanza un tick. Devuelve lo que se emitió, por celda (útil para las pruebas).
+     * Con `$emitir = false` no avisa a nadie por tiempo real (al rehacer el día, para no mandar miles de mensajes).
      *
      * @return array<string, array<int, array<string, mixed>>>
      */
-    public function tick(float $dt, ?Carbon $ahora = null): array
+    public function tick(float $dt, ?Carbon $ahora = null, bool $emitir = true): array
     {
         // Siempre se guarda en UTC, venga la hora en la zona que venga.
         $ahora = ($ahora ?? now())->copy()->utc();
@@ -125,12 +136,65 @@ class ServicioSimulacion
         });
 
         $sim->update(['tick' => $tick, 'ultimo_tick_en' => $ahora]);
+        $this->guardarFoto($tick, $ahora, $posiciones);
 
-        foreach ($porCelda as $celda => $colectivos) {
-            PosicionesActualizadas::dispatch((string) $celda, $tick, $colectivos);
+        if ($emitir) {
+            foreach ($porCelda as $celda => $colectivos) {
+                PosicionesActualizadas::dispatch((string) $celda, $tick, $colectivos);
+            }
         }
 
         return $porCelda;
+    }
+
+    /**
+     * Guarda una foto del historial si pasaron `ramal.historial.paso_s` segundos desde la anterior (M8).
+     * Va por tiempo y no por número de tick, así sirve igual en vivo (ticks de 2 s) que al rehacer el día (ticks de 10 s).
+     *
+     * @param  Collection<int, Posicion>  $posiciones  ya actualizadas en este tick
+     */
+    private function guardarFoto(int $tick, Carbon $ahora, $posiciones): void
+    {
+        $paso = (float) config('ramal.historial.paso_s');
+
+        if (! $this->ultimaFotoCargada) {
+            $ultima = HistorialPosicion::max('momento');
+            $this->ultimaFoto = $ultima ? Carbon::parse($ultima, 'UTC') : null;
+            $this->ultimaFotoCargada = true;
+        }
+
+        if ($this->ultimaFoto !== null && abs($ahora->diffInSeconds($this->ultimaFoto)) < $paso - 0.5) {
+            return;
+        }
+
+        $enCalle = $posiciones
+            ->where('estado', '!=', EstadoColectivo::FUERA_DE_SERVICIO)
+            ->map(fn (Posicion $p) => [
+                'id' => $p->colectivo_id,
+                'ramal' => $p->ramal_id,
+                'lon' => $p->longitud,
+                'lat' => $p->latitud,
+                'rumbo' => $p->rumbo,
+                'estado' => $p->estado,
+            ])
+            ->values()
+            ->all();
+
+        HistorialPosicion::create([
+            'momento' => $ahora,
+            'tick' => $tick,
+            'cantidad' => count($enCalle),
+            'datos' => Instantanea::empaquetar($enCalle),
+        ]);
+
+        $this->ultimaFoto = $ahora;
+    }
+
+    /** Olvida cuál fue la última foto (por ejemplo, después de borrar el historial). */
+    public function reiniciarHistorial(): void
+    {
+        $this->ultimaFotoCargada = false;
+        $this->ultimaFoto = null;
     }
 
     /** Estado de todos los colectivos que se ven, para quien recién llega al mapa (sin esperar al próximo tick). */
@@ -265,6 +329,7 @@ class ServicioSimulacion
                     'tipo' => $evento['incidente'],
                     'duracion_prevista_s' => (int) round($evento['duracion_s']),
                     'desvio_orden' => $evento['incidente'] === 'desvio' ? $nuevo->desvioOrden : null,
+                    'origen' => $this->origenIncidentes,
                     'inicio_en' => $ahora,
                 ]);
             } else {

@@ -147,6 +147,16 @@ Alpine.data('mapaPublico', () => {
         cargando: true,
         error: false,
 
+        // Rebobinar (M8)
+        modo: 'vivo', // 'vivo' o 'pasado'
+        reproduciendo: false,
+        velocidad: 4,
+        tiempoPasado: 0,
+        rango: null,
+        cargandoHistorial: false,
+        sinHistorial: false,
+        sinRegistro: false,
+
         // Llegadas a la parada elegida (M5)
         llegadas: [],
         llegadasEstado: 'vacio', // vacio, cargando, listo, error
@@ -174,6 +184,17 @@ Alpine.data('mapaPublico', () => {
                         alSeleccionarColectivo: (c) => (this.colectivo = c),
                         alSinNovedades: (v) => (this.sinNovedades = v),
                         alMedir: (m) => (this.medicion = m),
+                        alModo: (m) => (this.modo = m),
+                        alReproduciendo: (v) => (this.reproduciendo = v),
+                        alVelocidad: (v) => (this.velocidad = v),
+                        alTiempoPasado: (t) => (this.tiempoPasado = t),
+                        alRangoHistorial: (r) => (this.rango = r),
+                        alCargandoHistorial: (v) => (this.cargandoHistorial = v),
+                        alSinRegistro: (v) => (this.sinRegistro = v),
+                        alSinHistorial: () => {
+                            this.sinHistorial = true;
+                            setTimeout(() => (this.sinHistorial = false), 6000);
+                        },
                     },
                 });
                 this.cargando = false;
@@ -253,6 +274,41 @@ Alpine.data('mapaPublico', () => {
         },
 
         elegirLinea(n) { mapa?.elegirLinea(n); },
+        // ---- rebobinar ----
+        rebobinar() { mapa?.rebobinar(10); },
+        volverAlVivo() { mapa?.volverAlVivo(); },
+        alternarReproduccion() { this.reproduciendo ? mapa?.pausar() : mapa?.reproducir(); },
+        fijarVelocidad(v) { mapa?.velocidad(v); },
+        irA(ms) { mapa?.irA(ms); },
+        saltar(minutos) { mapa?.irA(this.tiempoPasado + minutos * 60000); },
+
+        /** La hora del instante que se está viendo, en Paraná (24 h). */
+        get horaPasado() {
+            return this.tiempoPasado
+                ? new Date(this.tiempoPasado).toLocaleTimeString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires', hour12: false })
+                : '--:--:--';
+        },
+
+        /** "Hoy" o "Ayer" o la fecha, para no confundirse al rebobinar pasada la medianoche. */
+        get diaPasado() {
+            if (!this.tiempoPasado) return '';
+            const formato = { timeZone: 'America/Argentina/Buenos_Aires', year: 'numeric', month: '2-digit', day: '2-digit' };
+            const dia = new Date(this.tiempoPasado).toLocaleDateString('en-CA', formato);
+            const hoy = new Date().toLocaleDateString('en-CA', formato);
+            const ayer = new Date(Date.now() - 86400000).toLocaleDateString('en-CA', formato);
+            return dia === hoy ? 'Hoy' : dia === ayer ? 'Ayer' : new Date(this.tiempoPasado).toLocaleDateString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires', day: 'numeric', month: 'long' });
+        },
+
+        /** Cuánto falta para llegar a ahora, dicho en palabras. */
+        get haceCuanto() {
+            if (!this.rango || !this.tiempoPasado) return '';
+            const min = Math.round((this.rango.hasta - this.tiempoPasado) / 60000);
+            if (min < 1) return 'Hace un momento';
+            if (min < 60) return `Hace ${min} min`;
+            const h = Math.floor(min / 60);
+            return `Hace ${h} h ${min % 60 ? (min % 60) + ' min' : ''}`.trim();
+        },
+
         cerrarParada() { mapa?.elegirParada(null); },
         cerrarColectivo() { mapa?.elegirColectivo(null); },
         acercar() { mapa?.acercar(); },

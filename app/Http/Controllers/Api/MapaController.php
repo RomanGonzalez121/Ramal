@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Colectivo;
 use App\Models\Linea;
 use App\Simulacion\Celdas;
 use Illuminate\Http\JsonResponse;
@@ -37,6 +38,12 @@ class MapaController extends Controller
 
         return response()->json([
             'celdas' => Celdas::desdeConfiguracion()->configuracion(),
+            // Los colectivos (para dibujar el pasado: el historial guarda solo el número de cada uno).
+            'colectivos' => Colectivo::with('linea')->orderBy('interno')->get()->map(fn ($c) => [
+                'id' => $c->id,
+                'interno' => $c->interno,
+                'linea' => $c->linea->numero,
+            ])->all(),
             'lineas' => $lineas->map(fn ($linea) => [
                 'numero' => $linea->numero,
                 'nombre' => $linea->nombre,

@@ -25,7 +25,7 @@ El mapa usa un recorte de Paraná en `resources/mapa/parana.pmtiles` (se regener
 
 Para recalcular los recorridos y los desvíos (una sola vez cada uno, usan el servidor público de OSRM): `node scripts/calcular-recorridos.mjs` y `node scripts/calcular-desvios.mjs`, y después `php artisan db:seed --class=DesviosSeeder`.
 
-Para que el centro de control tenga un día completo de incidentes: `php artisan ramal:rellenar-dia`.
+Para que el centro de control y el rebobinado tengan un día completo (incidentes e historial de posiciones): apagar el simulador y correr `php artisan ramal:rellenar-dia --forzar` (tarda unos 17 minutos). El historial se guarda 48 horas.
 
 ## Tests
 

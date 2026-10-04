@@ -15,6 +15,14 @@ return [
     // Muestra la cuenta de operador de demostración en la pantalla de ingreso. Apagarlo en una instalación real.
     'mostrar_cuenta_demo' => (bool) env('RAMAL_MOSTRAR_CUENTA_DEMO', true),
 
+    // Historial para rebobinar (M8): una foto cada `paso_s` segundos, se conservan `retencion_horas` horas
+    // y el navegador pide como mucho `ventana_max_min` minutos por vez.
+    'historial' => [
+        'paso_s' => (int) env('RAMAL_HISTORIAL_PASO', 10),
+        'retencion_horas' => (int) env('RAMAL_HISTORIAL_RETENCION', 48),
+        'ventana_max_min' => 15,
+    ],
+
     // Rectángulo de la ciudad [oeste, sur, este, norte] y cómo se divide para emitir solo lo que se ve.
     'ciudad' => [
         'caja' => [-60.62, -31.82, -60.42, -31.66],
