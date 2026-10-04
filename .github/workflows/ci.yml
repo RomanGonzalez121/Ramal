@@ -60,6 +60,10 @@ jobs:
       - name: Tests de PHP
         run: php artisan test
 
+      # El despliegue gratuito usa SQLite: se comprueba que todo ande igual con las dos bases.
+      - name: Tests de PHP con SQLite
+        run: DB_CONNECTION=sqlite DB_DATABASE=:memory: php artisan test
+
   contenedor:
     name: Imagen de Docker
     runs-on: ubuntu-latest

@@ -28,7 +28,12 @@ return new class extends Migration
         });
 
         // Ciclo del incidente: activo (se generó), atendido (un operador lo tomó), resuelto.
-        DB::statement("ALTER TABLE incidentes MODIFY estado ENUM('activo','atendido','resuelto') NOT NULL DEFAULT 'activo'");
+        if (DB::getDriverName() === 'sqlite') {
+            // SQLite (la base del plan gratuito, que se rehace al despertar) no tiene ENUM ni MODIFY: texto común.
+            Schema::table('incidentes', fn (Blueprint $tabla) => $tabla->string('estado', 10)->default('activo')->change());
+        } else {
+            DB::statement("ALTER TABLE incidentes MODIFY estado ENUM('activo','atendido','resuelto') NOT NULL DEFAULT 'activo'");
+        }
 
         Schema::table('incidentes', function (Blueprint $tabla) {
             $tabla->unsignedTinyInteger('desvio_orden')->nullable()->after('duracion_prevista_s');
@@ -48,7 +53,9 @@ return new class extends Migration
             $tabla->dropColumn(['desvio_orden', 'atendido_en', 'ajuste_aplicado', 'accion_pedida', 'resuelto_por']);
         });
 
-        DB::statement("ALTER TABLE incidentes MODIFY estado ENUM('activo','resuelto') NOT NULL DEFAULT 'activo'");
+        if (DB::getDriverName() !== 'sqlite') {
+            DB::statement("ALTER TABLE incidentes MODIFY estado ENUM('activo','resuelto') NOT NULL DEFAULT 'activo'");
+        }
 
         Schema::table('posiciones', function (Blueprint $tabla) {
             $tabla->dropColumn('desvio_orden');

@@ -22,6 +22,7 @@ class RellenarDia extends Command
 {
     protected $signature = 'ramal:rellenar-dia
         {--desde=05:30 : Hora de Paraná desde la que se rehace}
+        {--ultimos= : Rehacer solo los últimos N minutos (en vez de --desde). Es lo que usa el contenedor al despertar}
         {--paso=10 : Segundos simulados por cada paso}
         {--forzar : Seguir aunque la simulación en vivo esté corriendo}';
 
@@ -42,7 +43,9 @@ class RellenarDia extends Command
         $inicioDia = $ahora->copy()->setTimezone($zona)->startOfDay()->utc();
         $desde = $ahora->copy()->setTimezone($zona)->setTimeFromTimeString($this->option('desde'))->utc();
 
-        if ($desde->greaterThanOrEqualTo($ahora)) {
+        if ($this->option('ultimos') !== null) {
+            $desde = $ahora->copy()->subMinutes(max(1, (int) $this->option('ultimos')));
+        } elseif ($desde->greaterThanOrEqualTo($ahora)) {
             // Todavía no es la hora pedida: se rehace desde hace 3 horas.
             $desde = $ahora->copy()->subHours(3);
             $this->warn('Todavía no son las '.$this->option('desde').'; se rehacen las últimas 3 horas.');

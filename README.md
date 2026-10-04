@@ -41,7 +41,7 @@ El documento `resources/api/openapi.yaml` es la fuente de la página `/api`; un 
 
 ## Publicar
 
-El `Dockerfile` arma un contenedor con la web, el simulador y las tareas programadas; la base MySQL va aparte. Detalles, variables de entorno y el aviso del arranque en frío en `docs/despliegue.md`. **El `Dockerfile` todavía no se probó:** lo construye por primera vez la integración continua.
+El `Dockerfile` arma un contenedor con la web, el simulador y las tareas programadas; en el plan gratuito de Render la base es SQLite adentro del contenedor y se rehace sola al despertar; con MySQL externo los datos duran. Detalles, variables de entorno y el aviso del arranque en frío en `docs/despliegue.md`. **El `Dockerfile` todavía no se probó:** lo construye por primera vez la integración continua.
 
 La demo gratuita se duerme tras unos minutos sin visitas, así que el primer ingreso puede tardar. Mediciones de rendimiento (LCP, cuadros por segundo, carga de la API) en `docs/rendimiento.md`; la prueba de carga es `node scripts/prueba-de-carga.mjs`.
 

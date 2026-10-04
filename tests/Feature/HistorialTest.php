@@ -314,6 +314,22 @@ class HistorialTest extends TestCase
         $this->assertSame('2026-10-05 13:00:00', $ultima->momento->format('Y-m-d H:i:s'));
     }
 
+    public function test_rehacer_solo_los_ultimos_minutos_es_lo_que_usa_el_contenedor_al_despertar(): void
+    {
+        Event::fake([PosicionesActualizadas::class]);
+        Carbon::setTestNow(Carbon::parse('2026-10-05 10:00:00', self::ZONA));
+
+        $this->artisan('ramal:rellenar-dia', ['--ultimos' => 20, '--paso' => 60, '--forzar' => true])->assertExitCode(0);
+
+        $this->assertSame(20, HistorialPosicion::count());
+        $this->assertSame(40, Posicion::count());
+
+        $primera = HistorialPosicion::orderBy('momento')->first();
+        $ultima = HistorialPosicion::orderByDesc('momento')->first();
+        $this->assertSame('2026-10-05 12:41:00', $primera->momento->format('Y-m-d H:i:s'));
+        $this->assertSame('2026-10-05 13:00:00', $ultima->momento->format('Y-m-d H:i:s'));
+    }
+
     public function test_rehacer_el_dia_se_niega_si_la_simulacion_en_vivo_esta_corriendo(): void
     {
         Simulacion::actual()->update(['ultimo_tick_en' => now()]);

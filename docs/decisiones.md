@@ -233,3 +233,13 @@ Pendiente de sentir en pantalla (no se puede juzgar solo leyendo el código): la
   - Los atajos de cada página van en una fila propia, "En esta página".
 - **Teclado:** el menú desplegable y el del celular se cierran con Escape o al tocar afuera, y los botones avisan su estado con `aria-expanded`.
 - **Se descartó:** una barra lateral fija (le saca ancho al mapa) y una hamburguesa sin texto (no dice qué es).
+
+## M11-3. Base que se rehace al despertar (Render gratis)
+
+- **Problema:** el plan gratuito de Render no incluye MySQL (solo PostgreSQL, que expira a los 30 días) y su disco se borra cada vez que el servicio se duerme.
+- **Idea de Román:** en vez de buscar una base externa, rehacerlo todo cada vez que arranque.
+- **Se eligió:** SQLite adentro del contenedor, creada vacía en cada arranque, con migraciones, líneas, cuenta de operador y un relleno de los últimos 30 minutos (`ramal:rellenar-dia --ultimos=30`) antes de arrancar el simulador. Es coherente con cómo ya funciona el proyecto: la simulación es determinista, así que se puede reconstruir un tramo del día en vez de guardarlo.
+- **Costó una sola migración:** una usaba `ALTER TABLE ... MODIFY ... ENUM`, propio de MySQL; ahora en SQLite usa una columna de texto. Con eso los 254 tests pasan con las dos bases, y la integración continua corre ambas.
+- **Lo que se acepta perder:** tokens de la API, sesiones e historial viejo en cada despertar. Para una demo de portfolio es razonable; si no lo fuera, se vuelve a MySQL externo cambiando una variable.
+- **Se descartó:** MySQL o MariaDB adentro del mismo contenedor (el plan gratuito tiene 512 MB de memoria y un servidor de base consume buena parte) y adaptar la app a PostgreSQL (expira a los 30 días, que era justo el problema).
+- **Medido:** migrar, cargar y rehacer 30 minutos de historial tarda 25 segundos en esta máquina, y la web responde igual de rápido sobre SQLite. En Render, con mucha menos CPU, va a tardar más; no se pudo medir.
