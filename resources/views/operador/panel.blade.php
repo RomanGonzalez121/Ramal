@@ -49,9 +49,9 @@
 
         <dl class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6">
             <template x-for="(k, i) in indicadores" :key="k.clave">
-                <div class="flex flex-col gap-2 border-papel/20 px-5 py-4 transition-colors duration-200" :class="[i > 0 ? 'xl:border-l-2 xl:border-dashed' : '', k.alerta ? 'bg-senal text-asfalto' : '']">
+                <div class="flex flex-col justify-between gap-2 border-papel/20 px-5 py-4 transition-colors duration-200" :class="[i > 0 ? 'xl:border-l-2 xl:border-dashed' : '', k.alerta ? 'bg-senal text-asfalto' : '']">
                     <dt class="flex items-center gap-1.5 text-sm font-semibold" :class="k.alerta ? 'text-asfalto' : 'text-papel/75'">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" aria-hidden="true"><use :href="'#i-' + k.icono"/></svg>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" aria-hidden="true" class="shrink-0"><use :href="'#i-' + k.icono"/></svg>
                         <span x-text="k.titulo"></span>
                     </dt>
                     <dd class="whitespace-nowrap font-panel text-[clamp(2.4rem,3.6vw,3.6rem)] font-bold leading-none" :class="k.alerta ? 'text-asfalto' : 'text-senal'" x-text="k.valor"></dd>
@@ -61,8 +61,9 @@
     </section>
 
     {{-- Plano en vivo + colectivos que necesitan atención --}}
+    {{-- min-w-0: sin esto la columna se estira hasta el texto más largo y la página se sale de la pantalla en el celular --}}
     <div class="mt-12 grid gap-10 xl:grid-cols-[1.45fr_1fr]">
-        <section aria-labelledby="titulo-plano">
+        <section aria-labelledby="titulo-plano" class="min-w-0">
             <div class="flex flex-wrap items-end justify-between gap-3">
                 <div>
                     <h2 id="titulo-plano" class="font-titulo text-[2.6rem] font-black leading-none">Plano del servicio</h2>
@@ -92,7 +93,7 @@
             </ul>
         </section>
 
-        <section aria-labelledby="titulo-atencion">
+        <section aria-labelledby="titulo-atencion" class="min-w-0">
             <h2 id="titulo-atencion" class="font-titulo text-[2.6rem] font-black leading-none">Necesitan atención</h2>
             <p class="mt-1 text-apoyo">Atendé un incidente para acortarlo, o resolvelo si ya está arreglado.</p>
 
@@ -106,11 +107,12 @@
             <ul class="mt-4 space-y-3" x-show="datos && datos.atencion.length > 0" x-cloak>
                 <template x-for="c in (datos?.atencion ?? [])" :key="c.interno">
                     <li class="border-[3px] border-texto p-3.5" @mouseenter="resaltar(c.interno)" @mouseleave="soltar()" @focusin="resaltar(c.interno)" @focusout="soltar()">
-                        <div class="flex items-center gap-3">
+                        {{-- En el celular el estado baja a su propio renglón y la ubicación se lee entera --}}
+                        <div class="flex flex-wrap items-center gap-x-3 gap-y-2.5">
                             <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-sm font-titulo text-[1.9rem] font-black leading-none" :style="'background:var(--linea-' + c.linea + ');color:var(--sobre-linea)'" x-text="c.linea"></span>
-                            <div class="min-w-0 flex-1">
+                            <div class="min-w-0 grow basis-[calc(100%-3.5rem)] sm:basis-0">
                                 <p class="font-titulo text-[1.8rem] font-extrabold leading-none">Colectivo <span x-text="c.interno"></span></p>
-                                <p class="mt-1 truncate text-sm text-apoyo" x-text="c.ubicacion"></p>
+                                <p class="mt-1 text-sm text-apoyo sm:truncate" x-text="c.ubicacion"></p>
                             </div>
                             <span class="inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1 text-sm font-semibold" :class="claseEstado(c.estado)">
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="square" aria-hidden="true"><use :href="'#i-' + iconoEstado(c.estado)"/></svg>
@@ -150,8 +152,8 @@
         <p class="mt-4 text-apoyo" x-show="datos && datos.incidentes.length === 0" x-cloak>Todavía no hubo incidentes hoy.</p>
 
         <ul class="mt-4 grid gap-x-10 md:grid-cols-2" x-ref="lista" x-show="datos && datos.incidentes.length > 0" x-cloak>
-            <template x-for="i in (datos?.incidentes ?? [])" :key="i.id">
-                <li :data-id="i.id" class="flex items-center gap-3 border-b-2 border-dashed border-apoyo/40 py-3" :class="nuevos.has(i.id) ? 'entra-fila' : ''">
+            <template x-for="(i, orden) in (datos?.incidentes ?? [])" :key="i.id">
+                <li :data-id="i.id" class="flex min-w-0 items-center gap-3 border-b-2 border-dashed border-apoyo/40 py-3" :class="[nuevos.has(i.id) ? 'entra-fila' : '', !todos && orden >= 8 ? 'max-md:hidden' : '']">
                     <span class="w-14 shrink-0 font-panel text-xl font-bold leading-none" x-text="i.hora"></span>
                     <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-sm font-titulo text-[1.4rem] font-black leading-none" :style="'background:var(--linea-' + i.linea + ');color:var(--sobre-linea)'" x-text="i.linea"></span>
                     <span class="min-w-0 flex-1">
@@ -168,6 +170,11 @@
                 </li>
             </template>
         </ul>
+
+        {{-- Celular: la lista del día entero es muy larga, así que arranca con los primeros 8 --}}
+        <button type="button" x-show="datos && datos.incidentes.length > 8" x-cloak @click="todos = !todos" :aria-expanded="todos"
+                class="mt-5 w-full rounded-full border-2 border-texto px-4 py-2.5 font-semibold hover:bg-texto hover:text-fondo md:hidden"
+                x-text="todos ? 'Mostrar solo los primeros 8' : 'Mostrar los ' + (datos?.incidentes.length ?? '') + ' incidentes de hoy'"></button>
     </section>
 
     <div class="calzada-doble my-14" aria-hidden="true"></div>
@@ -177,7 +184,7 @@
     <p class="mt-2 max-w-[60ch] text-apoyo">Incidentes desde la medianoche, hora de Paraná. Cada línea mantiene su color; el número va siempre al lado.</p>
 
     <div class="mt-8 grid gap-12 xl:grid-cols-[1.5fr_1fr]">
-        <figure class="relative">
+        <figure class="relative min-w-0">
             <div class="flex items-baseline justify-between gap-3">
                 <figcaption class="font-titulo text-[1.8rem] font-extrabold leading-none">Incidentes por hora</figcaption>
                 <button type="button" @click="tabla.hora = !tabla.hora" class="text-sm font-semibold underline underline-offset-4" x-text="tabla.hora ? 'Ver gráfico' : 'Ver como tabla'"></button>
@@ -185,7 +192,7 @@
 
             <div x-show="!tabla.hora" class="relative mt-3" @mouseleave="tip = null">
                 <div x-html="htmlHoras" @mouseover="alPasarSobre($event)"></div>
-                <div x-show="tip" x-cloak class="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full whitespace-nowrap border-2 border-texto bg-fondo px-2.5 py-1 text-sm font-semibold" :style="tip ? 'left:' + tip.x + '%;top:' + (tip.y / tip.alto * 100) + '%' : ''" x-text="tip?.texto"></div>
+                <div x-show="tip" x-cloak class="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full whitespace-nowrap border-2 border-texto bg-fondo px-2.5 py-1 text-sm font-semibold" :style="tip ? 'left:clamp(6.5rem,' + tip.x + '%,calc(100% - 6.5rem));top:' + (tip.y / tip.alto * 100) + '%' : ''" x-text="tip?.texto"></div>
             </div>
 
             <div x-show="tabla.hora" x-cloak class="mt-3 overflow-x-auto">
@@ -201,7 +208,7 @@
             </div>
         </figure>
 
-        <div class="space-y-12">
+        <div class="min-w-0 space-y-12">
             <figure>
                 <div class="flex items-baseline justify-between gap-3">
                     <figcaption class="font-titulo text-[1.8rem] font-extrabold leading-none">Incidentes por línea</figcaption>

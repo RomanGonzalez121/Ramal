@@ -354,6 +354,7 @@ Alpine.data('panelOperador', () => {
         datos: null,
         error: false,
         tabla: { hora: false, linea: false },
+        todos: false, // en el celular la lista de incidentes arranca con los primeros 8
         tip: null,
         nuevos: new Set(),
         conocidos: null,
@@ -444,7 +445,8 @@ Alpine.data('panelOperador', () => {
         posicionesLista() {
             const lista = this.$refs.lista;
             if (!lista) return new Map();
-            return new Map([...lista.querySelectorAll('li[data-id]')].map((li) => [li.dataset.id, li.getBoundingClientRect().top]));
+            // Solo las filas que se ven: una escondida (celular, lista recortada) no tiene posición desde donde deslizarse.
+            return new Map([...lista.querySelectorAll('li[data-id]')].filter((li) => li.offsetParent !== null).map((li) => [li.dataset.id, li.getBoundingClientRect().top]));
         },
 
         deslizarFilas(antes) {
