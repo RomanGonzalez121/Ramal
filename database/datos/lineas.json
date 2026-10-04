@@ -1,0 +1,24 @@
+{
+  "ciudad": "Paraná, Entre Ríos",
+  "nota": "Las líneas son ficticias. Las paradas son lugares reales de Paraná; coordenadas de OpenStreetMap (Nominatim).",
+  "paradas": {
+    "terminal":  { "nombre": "Terminal de Ómnibus",        "latitud": -31.739550, "longitud": -60.517900 },
+    "plaza":     { "nombre": "Plaza 1° de Mayo",           "latitud": -31.733010, "longitud": -60.529780 },
+    "urquiza":   { "nombre": "Parque Urquiza",             "latitud": -31.719280, "longitud": -60.532340 },
+    "gobierno":  { "nombre": "Casa de Gobierno",           "latitud": -31.726730, "longitud": -60.531440 },
+    "sanroque":  { "nombre": "Hospital San Roque",         "latitud": -31.730000, "longitud": -60.521700 },
+    "sanmartin": { "nombre": "Hospital San Martín",        "latitud": -31.731750, "longitud": -60.506290 },
+    "patronato": { "nombre": "Club Patronato",             "latitud": -31.743240, "longitud": -60.507680 },
+    "utn":       { "nombre": "UTN Facultad Regional",      "latitud": -31.749620, "longitud": -60.504020 },
+    "costanera": { "nombre": "Costanera",                  "latitud": -31.744410, "longitud": -60.558180 },
+    "gazzano":   { "nombre": "Parque Gazzano",             "latitud": -31.767630, "longitud": -60.501180 },
+    "puerto":    { "nombre": "Puerto Nuevo",               "latitud": -31.721270, "longitud": -60.521900 }
+  },
+  "lineas": [
+    { "numero": 1, "nombre": "Terminal a Parque Urquiza", "ida": ["terminal", "sanroque", "plaza", "gobierno", "urquiza"] },
+    { "numero": 2, "nombre": "Hospital San Martín a Costanera", "ida": ["sanmartin", "patronato", "terminal", "plaza", "costanera"] },
+    { "numero": 3, "nombre": "UTN a Plaza 1° de Mayo", "ida": ["utn", "patronato", "sanmartin", "sanroque", "plaza"] },
+    { "numero": 4, "nombre": "Parque Gazzano a Casa de Gobierno", "ida": ["gazzano", "utn", "terminal", "plaza", "gobierno"] },
+    { "numero": 5, "nombre": "Puerto Nuevo a Terminal", "ida": ["puerto", "urquiza", "gobierno", "plaza", "sanroque", "terminal"] }
+  ]
+}

@@ -1,0 +1,549 @@
+@import 'tailwindcss';
+
+@source '../../storage/framework/views/*.php';
+
+/* ---------- Barra de desplazamiento propia ----------
+   La ruta: el carril es una calzada con su línea de puntos amarilla en el medio, y la barra que se
+   arrastra es un cartel de parada (amarillo, borde de tinta). Usa los colores del tema, así cambia
+   sola entre Día y Noche. Chrome, Edge y Safari usan los pseudo-elementos de WebKit; Firefox solo
+   deja elegir los dos colores (y si se usara `scrollbar-color` en Chrome, este diseño se ignoraría). */
+
+::-webkit-scrollbar {
+    width: 16px;
+    height: 16px;
+}
+
+::-webkit-scrollbar-track {
+    background-color: var(--superficie);
+    background-image: repeating-linear-gradient(to bottom, var(--senal) 0 10px, transparent 10px 22px);
+    background-repeat: no-repeat;
+    background-size: 2px 100%;
+    background-position: center;
+    border-left: 2px solid color-mix(in srgb, var(--texto) 25%, transparent);
+}
+
+::-webkit-scrollbar-track:horizontal {
+    background-image: repeating-linear-gradient(to right, var(--senal) 0 10px, transparent 10px 22px);
+    background-size: 100% 2px;
+    border-left: 0;
+    border-top: 2px solid color-mix(in srgb, var(--texto) 25%, transparent);
+}
+
+::-webkit-scrollbar-thumb {
+    min-height: 44px;
+    min-width: 44px;
+    background-color: var(--senal);
+    border: 3px solid var(--texto);
+    border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background-color: color-mix(in srgb, var(--senal) 82%, var(--texto));
+}
+
+::-webkit-scrollbar-thumb:active {
+    background-color: var(--texto);
+}
+
+::-webkit-scrollbar-corner {
+    background-color: var(--superficie);
+}
+
+@supports (-moz-appearance: none) {
+    * {
+        scrollbar-width: thin;
+        scrollbar-color: var(--senal) var(--superficie);
+    }
+}
+
+/* ---------- Tokens de Ramal: dos temas con sentido propio ----------
+   Día = plano en papel. Noche = rótulo luminoso.
+   Los valores salen de CLAUDE.md; config/identidad.php los repite para
+   la tabla de contrastes y un test comprueba que coinciden. */
+
+:root {
+    --papel: #F7F7F4;
+    --asfalto: #1E2328;
+    --calzada: #2B3138;
+    --cordon: #ECEDE8;
+    --senal: #F5C400;
+
+    --fondo: var(--papel);
+    --texto: var(--asfalto);
+    --superficie: var(--cordon);
+    --apoyo: #5B6168;
+    --sombra-cartel: var(--asfalto);
+    --sobre-linea: #FFFFFF;
+
+    /* Curvas de movimiento (las mismas están en resources/js/movimiento.js) */
+    --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+    --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+
+    --linea-1: #9E2A3C;
+    --linea-2: #2F4CB3;
+    --linea-3: #16764B;
+    --linea-4: #B94A0B;
+    --linea-5: #7A3FA0;
+
+    /* mapa apagado: solo los colectivos tienen color pleno */
+    --mapa-fondo: #E3E6DF;
+    --mapa-manzana: #D9DED4;
+    --mapa-parque: #CBD6C6;
+    --mapa-calle: #F7F7F4;
+    --mapa-agua: #CDD9DD;
+
+    /* El tablero (rótulo luminoso de la pantalla de ingreso): Asfalto con una trama de calles */
+    --tablero-fondo: #1E2328;
+    --tablero-trama: #2B3138;
+
+    color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme='light']) {
+        --fondo: var(--asfalto);
+        --texto: var(--papel);
+        --superficie: var(--calzada);
+        --apoyo: #9AA1A8;
+        --sombra-cartel: #0B0D0F;
+        --sobre-linea: var(--asfalto);
+
+        --linea-1: #F0788C;
+        --linea-2: #8BA0FF;
+        --linea-3: #4CC38A;
+        --linea-4: #FF9A55;
+        --linea-5: #C08BE6;
+
+        --mapa-fondo: #14181C;
+        --mapa-manzana: #1A2025;
+        --mapa-parque: #19231F;
+        --mapa-calle: #2A3138;
+        --mapa-agua: #162027;
+
+        /* En Noche el tablero es más profundo que el resto de la página, para que se distinga */
+        --tablero-fondo: #0C0F12;
+        --tablero-trama: #1A2025;
+
+        color-scheme: dark;
+    }
+}
+
+:root[data-theme='dark'] {
+    --fondo: var(--asfalto);
+    --texto: var(--papel);
+    --superficie: var(--calzada);
+    --apoyo: #9AA1A8;
+    --sombra-cartel: #0B0D0F;
+    --sobre-linea: var(--asfalto);
+
+    --linea-1: #F0788C;
+    --linea-2: #8BA0FF;
+    --linea-3: #4CC38A;
+    --linea-4: #FF9A55;
+    --linea-5: #C08BE6;
+
+    --mapa-fondo: #14181C;
+    --mapa-manzana: #1A2025;
+    --mapa-parque: #19231F;
+    --mapa-calle: #2A3138;
+    --mapa-agua: #162027;
+
+    --tablero-fondo: #0C0F12;
+    --tablero-trama: #1A2025;
+
+    color-scheme: dark;
+}
+
+@theme inline {
+    --font-titulo: 'Big Shoulders Display', 'Arial Narrow', sans-serif;
+    --font-sans: 'Familjen Grotesk', ui-sans-serif, system-ui, sans-serif;
+    --font-panel: 'Doto', 'Big Shoulders Display', sans-serif;
+
+    --color-papel: var(--papel);
+    --color-asfalto: var(--asfalto);
+    --color-calzada: var(--calzada);
+    --color-cordon: var(--cordon);
+    --color-senal: var(--senal);
+    --color-fondo: var(--fondo);
+    --color-texto: var(--texto);
+    --color-superficie: var(--superficie);
+    --color-apoyo: var(--apoyo);
+    --color-linea-1: var(--linea-1);
+    --color-linea-2: var(--linea-2);
+    --color-linea-3: var(--linea-3);
+    --color-linea-4: var(--linea-4);
+    --color-linea-5: var(--linea-5);
+    --color-sobre-linea: var(--sobre-linea);
+}
+
+/* ---------- Base ---------- */
+
+html {
+    background: var(--fondo);
+    color: var(--texto);
+}
+
+body {
+    min-height: 100dvh;
+    font-family: var(--font-sans);
+    font-size: 1.0625rem;
+    line-height: 1.55;
+    background: var(--fondo);
+    color: var(--texto);
+}
+
+:focus-visible {
+    outline: 3px solid var(--senal);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 5px var(--asfalto);
+}
+
+::selection {
+    background: var(--senal);
+    color: var(--asfalto);
+}
+
+/* ---------- Respuesta al apretar ----------
+   Todos los botones se achican un poco mientras se aprietan. Sin capa (@layer), así gana sobre
+   `transition-colors` de Tailwind y la curva es siempre la del sitio. Los colectivos y las paradas del
+   mapa quedan afuera: su transform lo escribe el mapa en cada cuadro y una transición los atrasaría. */
+button:not(:disabled):not(.bus-mapa):not(.parada-mapa) {
+    transition:
+        transform 120ms var(--ease-out),
+        background-color 100ms ease,
+        color 100ms ease,
+        opacity 150ms ease;
+}
+
+button:not(:disabled):not(.bus-mapa):not(.parada-mapa):active {
+    transform: scale(0.97);
+}
+
+/* ---------- Pintura de la calzada: los separadores del sitio ---------- */
+
+.calzada-discontinua {
+    height: 0;
+    border-top: 3px dashed currentColor;
+    border-image: repeating-linear-gradient(90deg, currentColor 0 22px, transparent 22px 44px) 1;
+    opacity: 0.55;
+}
+
+.calzada-doble {
+    height: 9px;
+    border-block: 3px solid var(--senal);
+}
+
+/* ---------- Cartel de parada: la única sombra del sitio, corta y dura ---------- */
+
+.cartel-parada {
+    background: var(--senal);
+    color: var(--asfalto);
+    border: 3px solid var(--asfalto);
+    box-shadow: 5px 5px 0 var(--sombra-cartel);
+}
+
+/* ---------- Rótulo luminoso ---------- */
+
+.rotulo {
+    background: var(--asfalto);
+    color: var(--senal);
+    font-family: var(--font-panel);
+}
+
+.rotulo-digitos {
+    font-family: var(--font-panel);
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: 0.02em;
+    font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Movimiento ---------- */
+
+/* parpadeo de panel: dos cortes secos, sin fundido */
+@keyframes parpadeo-panel {
+    0% { opacity: 1; }
+    20% { opacity: 0.15; }
+    40% { opacity: 1; }
+    60% { opacity: 0.35; }
+    100% { opacity: 1; }
+}
+
+.parpadeo-panel {
+    animation: parpadeo-panel 180ms steps(1, end);
+}
+
+/* pulso del cartel cuando llega un colectivo */
+@keyframes pulso-parada {
+    0% { transform: scale(0.6); opacity: 0.9; }
+    100% { transform: scale(2.6); opacity: 0; }
+}
+
+.pulso-parada {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: pulso-parada 450ms var(--ease-out) forwards;
+}
+
+/* entrada de una fila de incidente: baja desde arriba */
+@keyframes entra-fila {
+    from { transform: translateY(-14px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+.entra-fila {
+    animation: entra-fila 260ms var(--ease-out) both;
+}
+
+.colectivo-mapa {
+    will-change: transform;
+}
+
+.ruta-linea {
+    transition: opacity 200ms var(--ease-out);
+}
+
+/* ---------- Mapa público: colectivos y paradas sobre el mapa ---------- */
+
+.bus-mapa {
+    position: absolute;
+    left: -14px;
+    top: -7px;
+    width: 28px;
+    height: 14px;
+    padding: 0;
+    border: 0;
+    background: none;
+    cursor: pointer;
+    pointer-events: auto;
+    z-index: 2; /* por encima de las paradas, para poder tocarlos cuando están detenidos en una */
+    will-change: transform;
+    transition: opacity 200ms var(--ease-out);
+}
+
+.bus-cuerpo {
+    display: block;
+    overflow: visible;
+    will-change: transform;
+}
+
+.bus-mapa.apagado,
+.parada-mapa.apagado {
+    opacity: 0.25;
+}
+
+.bus-mapa.elegido::after {
+    content: '';
+    position: absolute;
+    inset: -7px -9px;
+    border: 3px solid var(--senal);
+    border-radius: 6px;
+    pointer-events: none;
+}
+
+.bus-insignia {
+    position: absolute;
+    right: -6px;
+    top: -16px;
+    display: grid;
+    width: 18px;
+    height: 18px;
+    place-items: center;
+    border: 2px solid var(--texto);
+    border-radius: 999px;
+    background: var(--fondo);
+    color: var(--texto);
+}
+
+.bus-insignia[hidden] {
+    display: none;
+}
+
+.parada-mapa {
+    position: absolute;
+    left: -12px;
+    top: -34px;
+    width: 24px;
+    height: 40px;
+    padding: 0;
+    border: 0;
+    background: none;
+    cursor: pointer;
+    pointer-events: auto;
+    transform-origin: 12px 34px;
+    z-index: 1;
+    transition: opacity 200ms var(--ease-out);
+}
+
+.parada-mapa svg {
+    display: block;
+    overflow: visible;
+    filter: drop-shadow(2px 2px 0 var(--sombra-cartel));
+}
+
+.parada-mapa .poste {
+    stroke: var(--texto);
+    stroke-width: 2.5;
+    stroke-linecap: square;
+}
+
+.parada-mapa .cartel {
+    fill: var(--senal);
+    stroke: var(--texto);
+    stroke-width: 2;
+}
+
+.parada-mapa .base {
+    fill: var(--fondo);
+    stroke: var(--texto);
+    stroke-width: 2;
+}
+
+.parada-mapa.elegida .cartel {
+    stroke-width: 4;
+}
+
+.parada-pulso {
+    position: absolute;
+    left: 50%;
+    top: 4px;
+    width: 26px;
+    height: 26px;
+    margin-top: -18px;
+    border: 3px solid var(--senal);
+    border-radius: 999px;
+    pointer-events: none;
+}
+
+.maplibregl-canvas {
+    outline: none;
+}
+
+/* Una zona que siempre usa los colores de Noche (por ejemplo el tablero de la pantalla de ingreso),
+   aunque el resto de la página esté en Día: los colores de línea de Día no se leen sobre Asfalto. */
+.tema-noche {
+    --texto: var(--papel);
+    --fondo: var(--asfalto);
+    --superficie: var(--calzada);
+    --apoyo: #9AA1A8;
+    --sobre-linea: var(--asfalto);
+    --linea-1: #F0788C;
+    --linea-2: #8BA0FF;
+    --linea-3: #4CC38A;
+    --linea-4: #FF9A55;
+    --linea-5: #C08BE6;
+    color: var(--papel);
+}
+
+/* El tablero de la pantalla de ingreso: fondo propio, trama de manzanas y, del lado del formulario,
+   la doble línea amarilla de la calzada. */
+.tablero {
+    background-color: var(--tablero-fondo);
+    background-image:
+        linear-gradient(var(--tablero-trama) 2px, transparent 2px),
+        linear-gradient(90deg, var(--tablero-trama) 2px, transparent 2px);
+    background-size: 56px 56px;
+    background-position: -1px -1px;
+}
+
+@media (min-width: 1024px) {
+    .tablero-con-calzada {
+        border-right: 8px double var(--senal);
+    }
+}
+
+/* Pantalla de ingreso: los elementos entran de a uno, una sola vez, con 60 ms entre cada uno */
+@keyframes entra-campo {
+    from { transform: translateY(10px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+.entra-campo {
+    animation: entra-campo 320ms var(--ease-out) both;
+    animation-delay: calc(var(--i, 0) * 60ms);
+}
+
+/* Campo de formulario: una caja con su ícono; al enfocarse se marca con el amarillo de la parada */
+.campo {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    border: 3px solid var(--texto);
+    background: var(--fondo);
+    padding: 0 0.75rem;
+    transition: outline-color 100ms ease, background-color 100ms ease;
+    outline: 3px solid transparent;
+    outline-offset: 2px;
+}
+
+.campo:focus-within {
+    outline-color: var(--senal);
+}
+
+.campo[data-error] {
+    border-style: dashed;
+}
+
+.campo input:focus-visible {
+    box-shadow: none; /* el foco lo muestra la caja entera (.campo:focus-within) */
+}
+
+.campo input {
+    min-width: 0;
+    flex: 1;
+    background: transparent;
+    padding: 0.85rem 0;
+    font-size: 1.125rem;
+    outline: none;
+}
+
+/* Gráficos del panel: las barras crecen una sola vez, al cargar (no al actualizar los datos) */
+@keyframes crece-barra {
+    from { transform: scaleY(0); }
+    to { transform: scaleY(1); }
+}
+
+@keyframes crece-barra-x {
+    from { transform: scaleX(0); }
+    to { transform: scaleX(1); }
+}
+
+.barra-crece {
+    transform-box: fill-box;
+    transform-origin: 50% 100%;
+    animation: crece-barra 450ms var(--ease-out) both;
+    animation-delay: calc(var(--i, 0) * 18ms);
+}
+
+.barra-crece-x {
+    transform-box: fill-box;
+    transform-origin: 0 50%;
+    animation: crece-barra-x 450ms var(--ease-out) both;
+    animation-delay: calc(var(--i, 0) * 40ms);
+}
+
+/* transición circular del cambio de tema (View Transitions) */
+::view-transition-old(root),
+::view-transition-new(root) {
+    animation: none;
+    mix-blend-mode: normal;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .parpadeo-panel,
+    .pulso-parada,
+    .entra-fila,
+    .entra-campo,
+    .barra-crece,
+    .barra-crece-x {
+        animation: none;
+    }
+
+    .ruta-linea {
+        transition: opacity 120ms linear;
+    }
+
+    * {
+        scroll-behavior: auto !important;
+    }
+}

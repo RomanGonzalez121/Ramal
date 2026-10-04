@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  pruebas:
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: 'yes'
+          MYSQL_DATABASE: ramal_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping --silent"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Dependencias de PHP
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Dependencias de JavaScript
+        run: npm ci
+
+      - name: Estilo con Pint
+        run: vendor/bin/pint --test
+
+      - name: Tests de JavaScript (interpolador)
+        run: npm run test:js
+
+      - name: Compilar assets
+        run: npm run build
+
+      - name: Preparar la aplicación
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      - name: Tests de PHP
+        run: php artisan test
