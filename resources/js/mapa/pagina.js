@@ -5,7 +5,7 @@
 // tocar y alcanzar con el teclado.
 
 import * as maplibregl from 'maplibre-gl';
-import urlTrabajador from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
+import urlTrabajador from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { Protocol } from 'pmtiles';
 import { Interpolador } from '../interpolador.js';
@@ -114,7 +114,8 @@ export async function crearMapa({ contenedor, capa, svgRuta, ganchos }) {
 
         const nodo = document.createElement('button');
         nodo.type = 'button';
-        nodo.tabIndex = -1; // 40 paradas de teclado no ayudan; se elige por línea (M11 completa el teclado)
+        // 40 paradas de Tab no ayudan: los colectivos solo entran al orden del teclado cuando se elige su línea.
+        nodo.tabIndex = lineaElegida === c.linea ? 0 : -1;
         nodo.className = 'bus-mapa';
         nodo.style.setProperty('--l', `var(--linea-${c.linea})`);
         nodo.append(cuerpo, insignia);
@@ -609,6 +610,7 @@ export async function crearMapa({ contenedor, capa, svgRuta, ganchos }) {
 
         for (const [, bus] of buses) {
             bus.nodo.classList.toggle('apagado', lineaElegida !== null && bus.meta.linea !== lineaElegida);
+            bus.nodo.tabIndex = lineaElegida !== null && bus.meta.linea === lineaElegida ? 0 : -1;
         }
         for (const p of paradas.values()) {
             p.nodo.classList.toggle('apagado', lineaElegida !== null && !p.lineas.includes(lineaElegida));
@@ -644,10 +646,24 @@ export async function crearMapa({ contenedor, capa, svgRuta, ganchos }) {
         ganchos.alSeleccionarColectivo?.(bus ? describir(bus.meta) : null);
     }
 
+    /** Escape cierra lo último que se abrió: primero el colectivo o la parada elegida, después la línea. */
+    function cerrarSeleccion() {
+        if (colectivoElegido !== null) return elegirColectivo(null);
+        if ([...paradas.values()].some((p) => p.nodo.classList.contains('elegida'))) return elegirParada(null);
+        if (lineaElegida !== null) return elegirLinea(lineaElegida);
+    }
+
+    const alTeclear = (e) => {
+        if (e.key !== 'Escape' || e.defaultPrevented || e.target.closest?.('input, select, textarea')) return;
+        cerrarSeleccion();
+    };
+    document.addEventListener('keydown', alTeclear);
+
     return {
         elegirLinea,
         elegirParada,
         elegirColectivo,
+        cerrarSeleccion,
         acercar: () => mapa.zoomIn({ duration: prefiereMenosMovimiento() ? 0 : DURACION.zoom }),
         alejar: () => mapa.zoomOut({ duration: prefiereMenosMovimiento() ? 0 : DURACION.zoom }),
         medir,
@@ -668,6 +684,7 @@ export async function crearMapa({ contenedor, capa, svgRuta, ganchos }) {
             observador.disconnect();
             medios.removeEventListener('change', aplicarTema);
             menosMovimiento.removeEventListener('change', alCambiarMovimiento);
+            document.removeEventListener('keydown', alTeclear);
             tiempoReal.detener();
             mapa.remove();
         },

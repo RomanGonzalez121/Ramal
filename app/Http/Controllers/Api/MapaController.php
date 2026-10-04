@@ -7,13 +7,22 @@ use App\Models\Colectivo;
 use App\Models\Linea;
 use App\Simulacion\Celdas;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * Lo que el mapa dibuja y no cambia: líneas, paradas y recorridos. La posición de los colectivos va aparte.
  */
 class MapaController extends Controller
 {
+    /** Lo que devuelve no cambia mientras corre la simulación (líneas, paradas y recorridos), así que se guarda 5 minutos. */
     public function __invoke(): JsonResponse
+    {
+        $contenido = Cache::remember('api.mapa', 300, fn () => $this->armar());
+
+        return response()->json($contenido)->header('Cache-Control', 'public, max-age=300');
+    }
+
+    private function armar(): array
     {
         $lineas = Linea::query()
             ->orderBy('numero')
@@ -36,7 +45,7 @@ class MapaController extends Controller
             }
         }
 
-        return response()->json([
+        return [
             'celdas' => Celdas::desdeConfiguracion()->configuracion(),
             // Los colectivos (para dibujar el pasado: el historial guarda solo el número de cada uno).
             'colectivos' => Colectivo::with('linea')->orderBy('interno')->get()->map(fn ($c) => [
@@ -57,6 +66,6 @@ class MapaController extends Controller
                 ])->all(),
             ])->all(),
             'paradas' => collect($paradas)->map(fn ($p) => [...$p, 'lineas' => array_values($p['lineas'])])->values()->all(),
-        ])->header('Cache-Control', 'public, max-age=300');
+        ];
     }
 }

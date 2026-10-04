@@ -210,3 +210,13 @@ Pendiente de sentir en pantalla (no se puede juzgar solo leyendo el código): la
 - **Las barras no dependen del color:** cada parte tiene su textura (liso, rayas, puntos, franjas) además de su nombre y su duración.
 - **Se descartó:** un video o una animación fija (no se puede tocar) y un diagrama de arquitectura de ingeniería (explica poco a quien no programa).
 - **Dice lo que no funciona:** cierra con "Lo que conviene saber": los desvíos usan perfil de auto, la demo gratuita duerme, falta el GTFS estático y el error del 6,4 % se mide contra el simulador, no contra colectivos reales.
+
+## M11. Calidad, rendimiento y publicación
+
+- **Teclado en el mapa:** las paradas son botones y entran en el orden de Tab con su nombre y líneas. Los 40 colectivos no (40 paradas de Tab no ayudan a nadie): al elegir una línea, solo sus colectivos pasan a poder alcanzarse con Tab. Escape cierra lo último que se abrió (colectivo, después parada, después línea). Un párrafo oculto para lectores de pantalla explica esto. Las llegadas ya se anunciaban con una región `aria-live`.
+- **Se midió con el build de producción y apareció un error que el modo de desarrollo escondía:** el mapa no cargaba su trabajador. Detalle y soluciones en `docs/rendimiento.md`, junto con LCP 1,47 s, CLS 0 y 60 cuadros por segundo con los 40 colectivos.
+- **Se guardó `/api/mapa` en caché** (5 minutos): bajó el 95 % de las respuestas de 4,9 s a 1,5 s en la prueba de carga.
+- **Integración continua:** además de Pint y los tests de PHP y JavaScript, ahora corre `composer audit` y construye la imagen de Docker, para que un despliegue roto se vea antes de publicar.
+- **Despliegue:** un contenedor con Apache, el simulador y las tareas programadas (`Dockerfile`), y MySQL externo. Por defecto el navegador usa el plan B de consulta; el WebSocket se activa al compilar con `VITE_TIEMPO_REAL=websocket`. **No se pudo probar el contenedor en esta máquina** (no hay un motor de Docker); queda declarado en `docs/despliegue.md`.
+- **Se descartó:** Laravel Octane o FrankenPHP (más rápidos, pero agregan piezas que el plan gratuito no justifica) y probar rendimiento con una herramienta externa (la prueba de carga propia alcanza para comparar antes y después).
+- **Pendiente:** elegir el proveedor de hosting y de MySQL; correr el `Dockerfile` de verdad; GTFS estático; auditoría de animaciones con `improve-animations` y revisión de seguridad con `security-review`.

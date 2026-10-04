@@ -37,13 +37,16 @@ jobs:
       - name: Dependencias de PHP
         run: composer install --no-interaction --prefer-dist
 
+      - name: Dependencias sin vulnerabilidades conocidas
+        run: composer audit
+
       - name: Dependencias de JavaScript
         run: npm ci
 
       - name: Estilo con Pint
         run: vendor/bin/pint --test
 
-      - name: Tests de JavaScript (interpolador)
+      - name: Tests de JavaScript (interpolador, reproductor, tiempo real, calculadora)
         run: npm run test:js
 
       - name: Compilar assets
@@ -56,3 +59,15 @@ jobs:
 
       - name: Tests de PHP
         run: php artisan test
+
+  contenedor:
+    name: Imagen de Docker
+    runs-on: ubuntu-latest
+    needs: pruebas
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Compila los assets, instala las dependencias de producción y arma la imagen: si algo del despliegue se rompe, se ve acá.
+      - name: Construir la imagen
+        run: docker build -t ramal .

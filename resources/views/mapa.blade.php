@@ -14,6 +14,8 @@
     <svg x-ref="ruta" class="pointer-events-none absolute inset-0 h-full w-full" aria-hidden="true"></svg>
     <div x-ref="capa" class="pointer-events-none absolute inset-0 overflow-hidden"></div>
 
+    <p class="sr-only">Mapa de Paraná con los colectivos en vivo. Con Tab recorrés las paradas; al elegir una línea, sus colectivos también entran en el orden del teclado. Enter elige una parada o un colectivo y Escape cierra la selección.</p>
+
     {{-- Panel --}}
     <aside class="pointer-events-none absolute inset-x-3 bottom-3 z-10 flex max-h-[52dvh] flex-col gap-3 overflow-y-auto md:inset-y-4 md:bottom-4 md:left-4 md:right-auto md:max-h-none md:w-[22rem]" aria-label="Información del mapa">
         {{-- Tablero: el rótulo luminoso de la ciudad --}}

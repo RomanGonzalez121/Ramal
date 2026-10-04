@@ -2,7 +2,7 @@
 
 Centro de control de colectivos en vivo para Paraná. Las líneas, los colectivos, los choferes y los incidentes son simulados; el mapa, el tiempo real, la estimación de llegada, la API y el historial son reales.
 
-Estado: **M0 (identidad y movimiento)** hecho. Ver `CLAUDE.md` para el plan completo y `docs/decisiones.md` para las decisiones técnicas.
+Estado: módulos M0 a M10 hechos; M11 (calidad y publicación) en curso. Ver `CLAUDE.md` para el plan completo y `docs/decisiones.md` para las decisiones técnicas.
 
 ## Probarlo
 
@@ -38,6 +38,12 @@ Para que el centro de control y el rebobinado tengan un día completo (incidente
 3. Cada token tiene 60 pedidos por minuto (`RAMAL_API_LIMITE`). Los errores vienen siempre como `{ "mensaje": "..." }`.
 
 El documento `resources/api/openapi.yaml` es la fuente de la página `/api`; un test comprueba que cada ruta de `/api/v1` esté documentada. `/api/v1/estado` no pide token. Las rutas `/api/mapa`, `/api/posiciones` y las demás sin `v1` son internas del sitio y pueden cambiar.
+
+## Publicar
+
+El `Dockerfile` arma un contenedor con la web, el simulador y las tareas programadas; la base MySQL va aparte. Detalles, variables de entorno y el aviso del arranque en frío en `docs/despliegue.md`. **El `Dockerfile` todavía no se probó:** lo construye por primera vez la integración continua.
+
+La demo gratuita se duerme tras unos minutos sin visitas, así que el primer ingreso puede tardar. Mediciones de rendimiento (LCP, cuadros por segundo, carga de la API) en `docs/rendimiento.md`; la prueba de carga es `node scripts/prueba-de-carga.mjs`.
 
 ## Tests
 
