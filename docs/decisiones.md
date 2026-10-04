@@ -220,3 +220,16 @@ Pendiente de sentir en pantalla (no se puede juzgar solo leyendo el código): la
 - **Despliegue:** un contenedor con Apache, el simulador y las tareas programadas (`Dockerfile`), y MySQL externo. Por defecto el navegador usa el plan B de consulta; el WebSocket se activa al compilar con `VITE_TIEMPO_REAL=websocket`. **No se pudo probar el contenedor en esta máquina** (no hay un motor de Docker); queda declarado en `docs/despliegue.md`.
 - **Se descartó:** Laravel Octane o FrankenPHP (más rápidos, pero agregan piezas que el plan gratuito no justifica) y probar rendimiento con una herramienta externa (la prueba de carga propia alcanza para comparar antes y después).
 - **Pendiente:** elegir el proveedor de hosting y de MySQL; correr el `Dockerfile` de verdad; GTFS estático; auditoría de animaciones con `improve-animations` y revisión de seguridad con `security-review`.
+
+## M11-2. Navegación pensada para quien llega sin saber nada
+
+- **Problema (lo marcó Román):** la barra tenía siete enlaces del mismo peso, mezclaba páginas con atajos internos ("Colores", "Tipografía"), usaba nombres de programador ("API", "Identidad", "Operador") y en el celular escondía dos destinos.
+- **Se eligió:**
+  - En la barra, solo lo que usa cualquier visitante: Mapa, Líneas y Cómo funciona.
+  - "Para desarrolladores" como menú desplegable con "Datos abiertos (API)" e "Identidad visual".
+  - La entrada de operadores como botón aparte ("Ingresar", y "Centro de control" cuando ya se ingresó).
+  - La página actual se marca con un cartelito amarillo debajo del enlace (no depende del color: es una forma, y además lleva `aria-current`).
+  - En el celular, un botón que dice "Menú" (y "Cerrar" al abrirse) con todos los destinos, cada uno con su ícono y una línea que explica adónde lleva.
+  - Los atajos de cada página van en una fila propia, "En esta página".
+- **Teclado:** el menú desplegable y el del celular se cierran con Escape o al tocar afuera, y los botones avisan su estado con `aria-expanded`.
+- **Se descartó:** una barra lateral fija (le saca ancho al mapa) y una hamburguesa sin texto (no dice qué es).

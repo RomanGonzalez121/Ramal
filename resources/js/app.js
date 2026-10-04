@@ -23,6 +23,17 @@ const guardar = (clave, valor) => {
     }
 };
 
+/** La barra de navegación: el menú del celular y el menú "Para desarrolladores" del escritorio. */
+Alpine.data('navegacion', () => ({
+    menu: false,
+    dev: false,
+
+    cerrar() {
+        this.menu = false;
+        this.dev = false;
+    },
+}));
+
 /** Interruptor Día/Noche. Por defecto sigue al sistema; elegir lo fija. */
 Alpine.data('tema', () => ({
     actual: 'dia',

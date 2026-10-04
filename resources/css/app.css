@@ -690,6 +690,66 @@ button:not(:disabled):not(.bus-mapa):not(.parada-mapa):active {
     background: repeating-linear-gradient(-45deg, var(--senal) 0 6px, var(--asfalto) 6px 12px);
 }
 
+/* Navegación (M11): la página actual se marca con un cartelito amarillo y cada destino del menú lleva su ícono */
+.nav-enlace {
+    position: relative;
+    padding: 0.35rem 0;
+    font-size: 0.97rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.nav-enlace::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    bottom: -7px;
+    left: 0;
+    height: 7px;
+    border: 2px solid var(--texto);
+    background: var(--senal);
+    transform: scaleX(0);
+    transform-origin: left center;
+    transition: transform 180ms var(--ease-out);
+}
+
+.nav-enlace:hover::after {
+    transform: scaleX(0.35);
+}
+
+.nav-enlace[aria-current='page']::after,
+.nav-enlace[data-activo]::after {
+    transform: scaleX(1);
+}
+
+.menu-destino {
+    border: 2px solid transparent;
+    transition: background-color 100ms linear;
+}
+
+.menu-destino:hover {
+    background: var(--superficie);
+}
+
+.menu-destino[aria-current='page'] {
+    border-color: var(--texto);
+}
+
+.menu-destino[aria-current='page'] .menu-destino-icono {
+    background: var(--senal);
+    color: var(--asfalto);
+}
+
+.boton-operador {
+    transition: background-color 100ms linear, color 100ms linear;
+}
+
+.boton-operador:hover,
+.boton-operador[aria-current='page'] {
+    background: var(--texto);
+    color: var(--fondo);
+}
+
 /* Pantalla de ingreso: los elementos entran de a uno, una sola vez, con 60 ms entre cada uno */
 @keyframes entra-campo {
     from { transform: translateY(10px); opacity: 0; }
