@@ -192,6 +192,11 @@ body {
     color: var(--texto);
 }
 
+/* Lo que está cerrado (menús, avisos, paneles) no se ve mientras Alpine no arrancó; si no, aparece abierto un instante, o para siempre si el JavaScript no corre. */
+[x-cloak] {
+    display: none !important;
+}
+
 :focus-visible {
     outline: 3px solid var(--senal);
     outline-offset: 2px;

@@ -61,4 +61,14 @@ class NavegacionTest extends TestCase
         $this->assertStringContainsString('href="https://ramal.example.com/lineas"', $html);
         $this->assertStringNotContainsString('href="http://ramal.example.com', $html);
     }
+
+    public function test_lo_cerrado_esta_escondido_hasta_que_arranca_el_javascript(): void
+    {
+        // Sin la regla [x-cloak] el menú "Para desarrolladores" se ve abierto mientras Alpine no arrancó (o siempre, si el JS no corre).
+        $css = file_get_contents(resource_path('css/app.css'));
+
+        $this->assertMatchesRegularExpression('/\[x-cloak\]\s*\{\s*display:\s*none\s*!important/', $css);
+
+        $this->get('/lineas')->assertSee('id="menu-desarrolladores"', false)->assertSee('x-cloak', false);
+    }
 }
