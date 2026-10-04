@@ -1,0 +1,713 @@
+openapi: 3.1.0
+info:
+  title: API pública de Ramal
+  version: 1.0.0
+  summary: Líneas, paradas, posiciones en vivo y llegadas de los colectivos de Paraná.
+  description: |
+    Ramal es un centro de control de colectivos con **líneas ficticias dibujadas sobre calles reales de Paraná**.
+    Los colectivos, choferes e incidentes son simulados; el mapa, el cálculo de llegadas y esta API son reales.
+
+    Todo lo que se pide con token cuenta contra el cupo del token (por defecto 60 pedidos por minuto). Los errores
+    siempre vienen como `{ "mensaje": "..." }`.
+  license:
+    name: MIT
+servers:
+  - url: /api/v1
+    description: Este mismo servidor
+tags:
+  - name: Servicio
+    description: Si el servicio está andando.
+  - name: Líneas
+    description: Las cinco líneas, sus ramales, paradas y trazado.
+  - name: Paradas
+    description: Dónde están las paradas y cuándo llega el próximo colectivo.
+  - name: Colectivos
+    description: Dónde está cada colectivo ahora.
+  - name: GTFS Realtime
+    description: Las posiciones en el formato que leen las aplicaciones de transporte.
+security:
+  - token: []
+paths:
+  /estado:
+    get:
+      operationId: estado
+      tags: [Servicio]
+      summary: Estado del servicio
+      description: Dice si la simulación está andando y cuántos colectivos hay en servicio. No necesita token.
+      security: []
+      responses:
+        '200':
+          description: Estado actual.
+          content:
+            application/json:
+              example: {"data": {"version": "v1", "simulacion": "activa", "ultimo_dato_hace_s": 1, "colectivos_en_servicio": 40}}
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Estado'
+  /lineas:
+    get:
+      operationId: listarLineas
+      tags: [Líneas]
+      summary: Listar las líneas
+      description: Las líneas ordenadas por número, con un resumen de cada ramal.
+      responses:
+        '200':
+          description: Todas las líneas.
+          content:
+            application/json:
+              example: {"data": [{"numero": 1, "nombre": "Terminal a Parque Urquiza", "destino": "Parque Urquiza", "ramales": [{"id": 1, "sentido": "ida", "destino": "Parque Urquiza", "cantidad_paradas": 5}, {"id": 2, "sentido": "vuelta", "destino": "Terminal de Ómnibus", "cantidad_paradas": 5}]}, {"numero": 2, "nombre": "Hospital San Martín a Costanera", "destino": "Costanera", "ramales": [{"id": 3, "sentido": "ida", "destino": "Costanera", "cantidad_paradas": 5}, {"id": 4, "sentido": "vuelta", "destino": "Hospital San Martín", "cantidad_paradas": 5}]}]}
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Linea'
+        '401':
+          $ref: '#/components/responses/SinToken'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '429':
+          $ref: '#/components/responses/DemasiadosPedidos'
+  /lineas/{numero}:
+    get:
+      operationId: mostrarLinea
+      tags: [Líneas]
+      summary: Detalle de una línea
+      description: Horarios, paradas en orden y trazado de cada ramal. El trazado es un GeoJSON `LineString` con coordenadas `[longitud, latitud]`.
+      parameters:
+        - $ref: '#/components/parameters/NumeroDeLinea'
+      responses:
+        '200':
+          description: La línea con sus ramales.
+          content:
+            application/json:
+              example: {"data": {"numero": 3, "nombre": "UTN a Plaza 1° de Mayo", "destino": "Plaza 1° de Mayo", "horarios": [{"dia": "habil", "desde": "05:30", "hasta": "23:30", "frecuencia_min": 12}, {"dia": "sabado", "desde": "06:00", "hasta": "23:00", "frecuencia_min": 18}, {"dia": "domingo", "desde": "07:00", "hasta": "22:30", "frecuencia_min": 25}], "ramales": [{"id": 5, "sentido": "ida", "destino": "Plaza 1° de Mayo", "paradas": [{"id": 8, "nombre": "UTN Facultad Regional", "orden": 1, "distancia_m": 0, "latitud": -31.74936, "longitud": -60.504465}, {"id": 7, "nombre": "Club Patronato", "orden": 2, "distancia_m": 987, "latitud": -31.743654, "longitud": -60.507221}], "recorrido": {"type": "LineString", "coordinates": [[-60.504465, -31.74936], [-60.504917, -31.749892], [-60.505331, -31.749401]]}}]}}
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/LineaDetalle'
+        '401':
+          $ref: '#/components/responses/SinToken'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '429':
+          $ref: '#/components/responses/DemasiadosPedidos'
+  /paradas:
+    get:
+      operationId: listarParadas
+      tags: [Paradas]
+      summary: Listar las paradas
+      description: Se puede filtrar por línea o buscar las más cercanas a un punto. Con `cerca`, vienen ordenadas de la más cercana a la más lejana y con la distancia en metros.
+      parameters:
+        - name: linea
+          in: query
+          description: Número de línea. Devuelve solo las paradas por donde pasa.
+          schema:
+            type: integer
+            minimum: 1
+            examples: [3]
+        - name: cerca
+          in: query
+          description: 'Punto de búsqueda como `latitud,longitud`.'
+          schema:
+            type: string
+            pattern: '^-?\d+(\.\d+)?,-?\d+(\.\d+)?$'
+            examples: ['-31.7333,-60.5287']
+        - name: radio_m
+          in: query
+          description: Radio de la búsqueda con `cerca`, en metros. Por defecto 500.
+          schema:
+            type: integer
+            minimum: 50
+            maximum: 5000
+            default: 500
+      responses:
+        '200':
+          description: Las paradas que cumplen el filtro.
+          content:
+            application/json:
+              example: {"data": [{"id": 4, "nombre": "Casa de Gobierno", "latitud": -31.72684, "longitud": -60.531033, "lineas": [1, 4, 5]}, {"id": 7, "nombre": "Club Patronato", "latitud": -31.743654, "longitud": -60.507221, "lineas": [2, 3]}]}
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Parada'
+        '401':
+          $ref: '#/components/responses/SinToken'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '422':
+          $ref: '#/components/responses/ParametroInvalido'
+        '429':
+          $ref: '#/components/responses/DemasiadosPedidos'
+  /paradas/{id}:
+    get:
+      operationId: mostrarParada
+      tags: [Paradas]
+      summary: Detalle de una parada
+      parameters:
+        - $ref: '#/components/parameters/IdDeParada'
+      responses:
+        '200':
+          description: La parada.
+          content:
+            application/json:
+              example: {"data": {"id": 4, "nombre": "Casa de Gobierno", "latitud": -31.72684, "longitud": -60.531033, "lineas": [1, 4, 5]}}
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Parada'
+        '401':
+          $ref: '#/components/responses/SinToken'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '429':
+          $ref: '#/components/responses/DemasiadosPedidos'
+  /paradas/{id}/llegadas:
+    get:
+      operationId: llegadasDeUnaParada
+      tags: [Paradas]
+      summary: Cuándo llega el próximo colectivo
+      description: |
+        Los próximos colectivos de cada ramal que pasa por la parada, del más cercano al más lejano. La estimación usa la
+        distancia por recorrer, la velocidad real reciente de cada colectivo, las demoras en paradas y los incidentes.
+        Los colectivos que terminan su recorrido en esa parada no se anuncian (nadie se sube).
+
+        `incierta` es verdadero cuando hay algo que vuelve poco confiable la cuenta, por ejemplo una falla sin hora de arreglo.
+      parameters:
+        - $ref: '#/components/parameters/IdDeParada'
+      responses:
+        '200':
+          description: Llegadas esperadas.
+          content:
+            application/json:
+              example: {"data": {"parada": {"id": 1, "nombre": "Terminal de Ómnibus"}, "calculado_en": "2026-10-04T01:53:24+00:00", "servicio": "en_servicio", "proximo_servicio": null, "llegadas": [{"linea": 2, "ramal_id": 4, "destino": "Hospital San Martín", "interno": "201", "segundos": 12, "incierta": false, "estado": "circulando"}, {"linea": 5, "ramal_id": 10, "destino": "Puerto Nuevo", "interno": "503", "segundos": 139, "incierta": false, "estado": "circulando"}]}}
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Llegadas'
+        '401':
+          $ref: '#/components/responses/SinToken'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '429':
+          $ref: '#/components/responses/DemasiadosPedidos'
+  /colectivos:
+    get:
+      operationId: listarColectivos
+      tags: [Colectivos]
+      summary: Posiciones en vivo
+      description: Dónde está cada colectivo en servicio ahora mismo. Los que están fuera de servicio no se listan.
+      parameters:
+        - name: linea
+          in: query
+          description: Número de línea.
+          schema:
+            type: integer
+            minimum: 1
+        - name: estado
+          in: query
+          description: Devuelve solo los colectivos en ese estado.
+          schema:
+            $ref: '#/components/schemas/EstadoDeColectivo'
+      responses:
+        '200':
+          description: Posiciones actuales.
+          content:
+            application/json:
+              example: {"data": [{"id": 17, "interno": "301", "linea": 3, "ramal_id": 5, "destino": "Plaza 1° de Mayo", "estado": "circulando", "latitud": -31.731772, "longitud": -60.523095, "rumbo": 113, "velocidad_kmh": 27, "actualizado_en": "2026-10-04T01:53:45+00:00"}, {"id": 18, "interno": "302", "linea": 3, "ramal_id": 6, "destino": "UTN Facultad Regional", "estado": "en_parada", "latitud": -31.746987, "longitud": -60.506232, "rumbo": 13, "velocidad_kmh": 0, "actualizado_en": "2026-10-04T01:53:45+00:00"}], "meta": {"calculado_en": "2026-10-04T01:53:46+00:00", "cantidad": 2}}
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Colectivo'
+                  meta:
+                    type: object
+                    required: [calculado_en, cantidad]
+                    properties:
+                      calculado_en:
+                        type: string
+                        format: date-time
+                      cantidad:
+                        type: integer
+        '401':
+          $ref: '#/components/responses/SinToken'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '422':
+          $ref: '#/components/responses/ParametroInvalido'
+        '429':
+          $ref: '#/components/responses/DemasiadosPedidos'
+  /colectivos/{id}:
+    get:
+      operationId: mostrarColectivo
+      tags: [Colectivos]
+      summary: Un colectivo
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Identificador del colectivo (el `id` que devuelve el listado, no el número de interno).
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: El colectivo.
+          content:
+            application/json:
+              example: {"data": {"id": 17, "interno": "301", "linea": 3, "ramal_id": 5, "destino": "Plaza 1° de Mayo", "estado": "circulando", "latitud": -31.731772, "longitud": -60.523095, "rumbo": 113, "velocidad_kmh": 27, "actualizado_en": "2026-10-04T01:53:45+00:00"}}
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Colectivo'
+        '401':
+          $ref: '#/components/responses/SinToken'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '429':
+          $ref: '#/components/responses/DemasiadosPedidos'
+  /gtfs-rt/posiciones:
+    get:
+      operationId: feedDePosiciones
+      tags: [GTFS Realtime]
+      summary: Feed de posiciones (GTFS Realtime)
+      description: |
+        Un `FeedMessage` de [GTFS Realtime](https://gtfs.org/realtime/) con una entidad `VehiclePosition` por cada colectivo en servicio. Es un feed completo (`FULL_DATASET`): cada respuesta trae todos los vehículos.
+
+        Por defecto viene en **protobuf**, listo para las bibliotecas y aplicaciones de transporte. Con `formato=json` se ve el mismo contenido como texto, con los nombres de la especificación.
+
+        `route_id` es el número de la línea y `direction_id` vale 0 en la ida y 1 en la vuelta. No hay un feed estático (GTFS) que lo acompañe, así que los viajes no tienen identificador.
+      parameters:
+        - name: formato
+          in: query
+          description: Cómo se devuelve el feed.
+          schema:
+            type: string
+            enum: [protobuf, json]
+            default: protobuf
+      responses:
+        '200':
+          description: El feed completo.
+          content:
+            application/x-protobuf:
+              schema:
+                type: string
+                format: binary
+            application/json:
+              example: {"header": {"gtfs_realtime_version": "2.0", "incrementality": "FULL_DATASET", "timestamp": 1791078000}, "entity": [{"id": "17", "vehicle": {"trip": {"route_id": "3", "direction_id": 0}, "position": {"latitude": -31.731772, "longitude": -60.523095, "bearing": 113.0, "speed": 7.5}, "current_status": 2, "timestamp": 1791078000, "vehicle": {"id": "17", "label": "301"}, "stop_id": "7", "current_stop_sequence": 2}}]}
+              schema:
+                $ref: '#/components/schemas/FeedGtfsRealtime'
+        '401':
+          $ref: '#/components/responses/SinToken'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '422':
+          $ref: '#/components/responses/ParametroInvalido'
+        '429':
+          $ref: '#/components/responses/DemasiadosPedidos'
+components:
+  securitySchemes:
+    token:
+      type: http
+      scheme: bearer
+      description: |
+        Token personal de Sanctum con permiso `leer`. Los operadores lo crean en el panel (Centro de control, Acceso a la API) y se muestra una sola vez.
+        Se manda en la cabecera `Authorization: Bearer <token>`.
+  parameters:
+    NumeroDeLinea:
+      name: numero
+      in: path
+      required: true
+      description: Número de la línea, del 1 al 5.
+      schema:
+        type: integer
+        minimum: 1
+    IdDeParada:
+      name: id
+      in: path
+      required: true
+      description: Identificador de la parada.
+      schema:
+        type: integer
+        minimum: 1
+  responses:
+    SinToken:
+      description: Falta el token o no es válido.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    SinPermiso:
+      description: El token no tiene permiso de lectura.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NoEncontrado:
+      description: No existe lo que se pidió.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    ParametroInvalido:
+      description: Algún parámetro no tiene un valor válido.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [message, errors]
+            properties:
+              message:
+                type: string
+              errors:
+                type: object
+                additionalProperties:
+                  type: array
+                  items:
+                    type: string
+    DemasiadosPedidos:
+      description: Se acabó el cupo por minuto del token. Esperá `reintentar_en_s` segundos.
+      headers:
+        Retry-After:
+          description: Segundos hasta que se renueva el cupo.
+          schema:
+            type: integer
+        X-RateLimit-Limit:
+          description: Pedidos permitidos por minuto.
+          schema:
+            type: integer
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [mensaje, reintentar_en_s]
+            properties:
+              mensaje:
+                type: string
+              reintentar_en_s:
+                type: integer
+  schemas:
+    Error:
+      type: object
+      required: [mensaje]
+      properties:
+        mensaje:
+          type: string
+          examples: ['No encontramos lo que pediste.']
+    Estado:
+      type: object
+      required: [version, simulacion, ultimo_dato_hace_s, colectivos_en_servicio]
+      properties:
+        version:
+          type: string
+          examples: [v1]
+        simulacion:
+          type: string
+          enum: [activa, detenida]
+        ultimo_dato_hace_s:
+          type: [integer, 'null']
+          description: Segundos desde la última actualización de posiciones.
+        colectivos_en_servicio:
+          type: integer
+    EstadoDeColectivo:
+      type: string
+      description: Qué está haciendo el colectivo.
+      enum: [circulando, en_parada, en_terminal, demorado, averiado, fuera_de_recorrido]
+    Linea:
+      type: object
+      required: [numero, nombre, destino, ramales]
+      properties:
+        numero:
+          type: integer
+          examples: [3]
+        nombre:
+          type: string
+        destino:
+          type: string
+        ramales:
+          type: array
+          items:
+            type: object
+            required: [id, sentido, destino, cantidad_paradas]
+            properties:
+              id:
+                type: integer
+              sentido:
+                type: string
+                description: Ida o vuelta.
+              destino:
+                type: string
+              cantidad_paradas:
+                type: integer
+    LineaDetalle:
+      type: object
+      required: [numero, nombre, destino, horarios, ramales]
+      properties:
+        numero:
+          type: integer
+        nombre:
+          type: string
+        destino:
+          type: string
+        horarios:
+          type: array
+          items:
+            type: object
+            required: [dia, desde, hasta, frecuencia_min]
+            properties:
+              dia:
+                type: string
+                enum: [habil, sabado, domingo]
+              desde:
+                type: string
+                examples: ['05:30']
+              hasta:
+                type: string
+                examples: ['23:00']
+              frecuencia_min:
+                type: integer
+        ramales:
+          type: array
+          items:
+            type: object
+            required: [id, sentido, destino, paradas, recorrido]
+            properties:
+              id:
+                type: integer
+              sentido:
+                type: string
+              destino:
+                type: string
+              paradas:
+                type: array
+                items:
+                  type: object
+                  required: [id, nombre, orden, distancia_m, latitud, longitud]
+                  properties:
+                    id:
+                      type: integer
+                    nombre:
+                      type: string
+                    orden:
+                      type: integer
+                    distancia_m:
+                      type: integer
+                      description: Metros desde el inicio del recorrido.
+                    latitud:
+                      type: number
+                    longitud:
+                      type: number
+              recorrido:
+                type: object
+                description: Trazado sobre las calles, como GeoJSON.
+                required: [type, coordinates]
+                properties:
+                  type:
+                    type: string
+                    const: LineString
+                  coordinates:
+                    type: array
+                    items:
+                      type: array
+                      prefixItems:
+                        - type: number
+                          description: Longitud
+                        - type: number
+                          description: Latitud
+    Parada:
+      type: object
+      required: [id, nombre, latitud, longitud, lineas]
+      properties:
+        id:
+          type: integer
+        nombre:
+          type: string
+        latitud:
+          type: number
+        longitud:
+          type: number
+        lineas:
+          type: array
+          description: Números de las líneas que pasan por la parada.
+          items:
+            type: integer
+        distancia_m:
+          type: integer
+          description: Solo con el filtro `cerca`. Metros hasta el punto buscado.
+    Colectivo:
+      type: object
+      required: [id, interno, linea, ramal_id, destino, estado, latitud, longitud, rumbo, velocidad_kmh, actualizado_en]
+      properties:
+        id:
+          type: integer
+        interno:
+          type: string
+          description: Número que lleva pintado el colectivo.
+          examples: ['301']
+        linea:
+          type: integer
+        ramal_id:
+          type: integer
+        destino:
+          type: [string, 'null']
+        estado:
+          $ref: '#/components/schemas/EstadoDeColectivo'
+        latitud:
+          type: number
+        longitud:
+          type: number
+        rumbo:
+          type: integer
+          minimum: 0
+          maximum: 359
+          description: Grados desde el norte, en sentido horario.
+        velocidad_kmh:
+          type: integer
+        actualizado_en:
+          type: [string, 'null']
+          format: date-time
+    Llegadas:
+      type: object
+      required: [parada, calculado_en, servicio, proximo_servicio, llegadas]
+      properties:
+        parada:
+          type: object
+          required: [id, nombre]
+          properties:
+            id:
+              type: integer
+            nombre:
+              type: string
+        calculado_en:
+          type: string
+          format: date-time
+        servicio:
+          type: string
+          enum: [en_servicio, sin_servicio]
+        proximo_servicio:
+          type: [string, 'null']
+          description: Hora a la que vuelve a haber servicio, si hoy ya no hay. Por ejemplo `05:30`.
+        llegadas:
+          type: array
+          items:
+            type: object
+            required: [linea, ramal_id, destino, interno, segundos, incierta, estado]
+            properties:
+              linea:
+                type: integer
+              ramal_id:
+                type: integer
+              destino:
+                type: string
+              interno:
+                type: string
+                examples: ['301']
+              segundos:
+                type: integer
+                description: Segundos hasta que llega.
+              incierta:
+                type: boolean
+              estado:
+                $ref: '#/components/schemas/EstadoDeColectivo'
+    FeedGtfsRealtime:
+      type: object
+      description: El `FeedMessage` de GTFS Realtime con los nombres de la especificación (solo con `formato=json`).
+      required: [header, entity]
+      properties:
+        header:
+          type: object
+          required: [gtfs_realtime_version, incrementality, timestamp]
+          properties:
+            gtfs_realtime_version:
+              type: string
+              const: '2.0'
+            incrementality:
+              type: string
+              const: FULL_DATASET
+            timestamp:
+              type: integer
+              description: Segundos desde 1970 (hora Unix) en que se armó el feed.
+        entity:
+          type: array
+          items:
+            type: object
+            required: [id, vehicle]
+            properties:
+              id:
+                type: string
+              vehicle:
+                type: object
+                required: [trip, position, current_status, timestamp, vehicle]
+                properties:
+                  trip:
+                    type: object
+                    required: [route_id, direction_id]
+                    properties:
+                      route_id:
+                        type: string
+                        description: Número de la línea.
+                      direction_id:
+                        type: integer
+                        enum: [0, 1]
+                        description: 0 es la ida y 1 la vuelta.
+                  position:
+                    type: object
+                    required: [latitude, longitude, bearing, speed]
+                    properties:
+                      latitude:
+                        type: number
+                      longitude:
+                        type: number
+                      bearing:
+                        type: number
+                        description: Grados desde el norte.
+                      speed:
+                        type: number
+                        description: Metros por segundo.
+                  current_status:
+                    type: integer
+                    enum: [1, 2]
+                    description: 1 es detenido en la parada y 2 es en camino a la parada.
+                  current_stop_sequence:
+                    type: integer
+                  stop_id:
+                    type: string
+                  timestamp:
+                    type: integer
+                  vehicle:
+                    type: object
+                    required: [id, label]
+                    properties:
+                      id:
+                        type: string
+                      label:
+                        type: string
+                        description: Número de interno.

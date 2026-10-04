@@ -511,6 +511,44 @@ button:not(:disabled):not(.bus-mapa):not(.parada-mapa):active {
     display: none;
 }
 
+/* Documentación de la API (M9): código en línea, bloques de respuesta y texto de las descripciones */
+.codigo {
+    font-family: ui-monospace, 'Cascadia Code', Consolas, 'Liberation Mono', monospace;
+    font-size: 0.9em;
+    overflow-wrap: anywhere;
+}
+
+.codigo-bloque {
+    max-height: 22rem;
+    overflow: auto;
+    padding: 0.9rem 1rem;
+    border: 2px solid color-mix(in srgb, var(--papel) 22%, transparent);
+    border-radius: 2px;
+    background: color-mix(in srgb, var(--asfalto) 70%, black);
+    color: var(--papel);
+    font-family: ui-monospace, 'Cascadia Code', Consolas, 'Liberation Mono', monospace;
+    font-size: 0.85rem;
+    line-height: 1.55;
+    tab-size: 2;
+    white-space: pre;
+}
+
+.texto-docs.inline > p {
+    display: inline;
+}
+
+.texto-docs > p + p {
+    margin-top: 0.75rem;
+}
+
+.texto-docs code {
+    padding: 0.05em 0.35em;
+    border-radius: 2px;
+    background: var(--superficie);
+    font-family: ui-monospace, 'Cascadia Code', Consolas, 'Liberation Mono', monospace;
+    font-size: 0.88em;
+}
+
 /* Pantalla de ingreso: los elementos entran de a uno, una sola vez, con 60 ms entre cada uno */
 @keyframes entra-campo {
     from { transform: translateY(10px); opacity: 0; }

@@ -176,3 +176,27 @@ Pendiente de sentir en pantalla (no se puede juzgar solo leyendo el código): la
 - **Mientras se mira el pasado** el tiempo real queda en pausa, los desvíos de ahora se ocultan y las llegadas dicen que son solo en vivo. "Volver al vivo" pide la foto actual y retoma el tiempo real.
 - **Se descartó:** mostrar las llegadas del pasado (habría que guardar las estimaciones también) y bajar el día completo de una vez.
 - **`ramal:rellenar-dia` ahora también rehace el historial** del día (corre el simulador a alta velocidad desde las 05:30, tarda unos 17 minutos para el día completo con el paso de 10 s). Se niega a correr si el simulador en vivo escribió en los últimos 15 s.
+
+## M9-1. API pública v1 con tokens de Sanctum
+
+- **Problema:** exponer los datos a terceros sin abrir el servidor a cualquiera y sin congelar las rutas internas del mapa.
+- **Se eligió:** un prefijo `/api/v1` aparte de las rutas internas (`/api/mapa`, `/api/posiciones`...), que el sitio sigue usando y pueden cambiar. Todas las consultas de datos piden un token de Sanctum con permiso `leer`; solo `/api/v1/estado` (¿anda la simulación?) es abierta. Los operadores crean sus tokens en el panel (`/operador/api`): el valor completo se muestra una sola vez, en la base queda su hash, hay un máximo de 5 por operador y se pueden revocar.
+- **Cupo por token, no por IP:** 60 pedidos por minuto (`RAMAL_API_LIMITE`). Detrás de una red compartida (un colegio, una oficina) el límite por IP castigaría a todos por lo que haga uno.
+- **Errores en español y con una sola forma** (`{ "mensaje": "..." }`) para 401, 403, 404 y 429. Los 422 de validación mantienen la forma de Laravel (`message` y `errors`), porque las bibliotecas la conocen.
+- **Se descartó:** tokens para todo visitante sin ingresar (no hay cómo limitarlos de forma justa), y versionar con cabeceras (en la ruta se ve y se prueba más fácil).
+- **Un test comprueba que no se desincronice:** compara las rutas de `/api/v1` registradas en Laravel con las del documento OpenAPI, en las dos direcciones, y qué rutas piden token.
+- **Un hallazgo del test:** en Laravel 13 el error de un token sin permiso llega al manejador de errores ya convertido en `AccessDeniedHttpException`, así que el mensaje propio hay que registrarlo para esa clase y no para la de Sanctum.
+
+## M9-2. OpenAPI como fuente de la documentación
+
+- **Se eligió:** escribir `resources/api/openapi.yaml` a mano (OpenAPI 3.1) y dibujar la página `/api` desde ese mismo archivo, con un lector propio (`App\Api\Documentacion`) que resuelve las referencias, arma las tablas de parámetros y respuestas y muestra los ejemplos. Así hay una sola verdad: lo que se lee en la página es lo que descargan las herramientas (`/api/openapi.json`).
+- **Probar de verdad:** cada consulta tiene un botón que pide a esta misma API con el token que se pegó arriba (se guarda solo en el navegador) y muestra el estado, el tiempo y los pedidos que quedan. Los ejemplos de respuesta son datos reales recortados.
+- **Se descartó:** Swagger UI o Redoc (son librerías de terceros que no respetan la identidad visual del sitio) y generar el documento desde anotaciones en el código (queda más lejos de lo que lee el usuario).
+- **Dependencia nueva:** `symfony/yaml`, para leer el YAML.
+
+## M9-3. Feed GTFS Realtime hecho a mano
+
+- **Se eligió:** `/api/v1/gtfs-rt/posiciones` devuelve un `FeedMessage` con una `VehiclePosition` por colectivo, escrito en protobuf con un escritor propio de 40 líneas (`App\Api\GtfsRealtime\Protobuf`: enteros de largo variable, decimales de 32 y 64 bits y bloques con largo). Es lo que leen las aplicaciones de transporte, y evita instalar la biblioteca de Google para cuatro tipos de campo.
+- **Tests:** el escritor se prueba con los ejemplos oficiales del formato (300 es `AC 02`, el campo 1 con 150 es `08 96 01`) y el feed completo se vuelve a leer con un lector escrito solo en los tests; el mismo contenido sale en JSON con `?formato=json` y se comprueba que coinciden.
+- **Cómo se mapea:** `route_id` es el número de línea; `direction_id` es 0 en la ida y 1 en la vuelta; `vehicle.label` es el interno; si está detenido en una parada informa `STOPPED_AT` con esa parada, y si no `IN_TRANSIT_TO` con la próxima.
+- **Límite conocido:** no hay un feed estático de GTFS que lo acompañe (`stops.txt`, `routes.txt`), así que otras aplicaciones no pueden cruzarlo con horarios. Los viajes no tienen identificador. Queda documentado como pendiente: generar el GTFS estático desde la base.

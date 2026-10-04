@@ -23,6 +23,12 @@ return [
         'ventana_max_min' => 15,
     ],
 
+    // API pública v1 (M9): pedidos por minuto que permite cada token y cuántos tokens puede tener un operador.
+    'api' => [
+        'limite_por_minuto' => (int) env('RAMAL_API_LIMITE', 60),
+        'tokens_por_operador' => 5,
+    ],
+
     // Rectángulo de la ciudad [oeste, sur, este, norte] y cómo se divide para emitir solo lo que se ve.
     'ciudad' => [
         'caja' => [-60.62, -31.82, -60.42, -31.66],

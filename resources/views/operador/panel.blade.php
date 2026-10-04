@@ -21,6 +21,8 @@
                 <span class="font-panel text-[2rem] font-bold leading-none text-senal" x-text="reloj || '--:--:--'">--:--:--</span>
             </div>
 
+            <a href="{{ route('operador.api') }}" class="flex items-center gap-2 rounded-full border-2 border-texto px-4 py-2.5 font-semibold hover:bg-texto hover:text-fondo"><x-icono nombre="api" :tamano="20" /> Acceso a la API</a>
+
             <form method="POST" action="{{ route('salir') }}">
                 @csrf
                 <button type="submit" class="flex items-center gap-2 rounded-full border-2 border-texto px-4 py-2.5 font-semibold hover:bg-texto hover:text-fondo"><x-icono nombre="operador" :tamano="20" /> Salir</button>

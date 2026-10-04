@@ -13,7 +13,7 @@ class IdentidadPaginaTest extends TestCase
 
         $this->get('/')
             ->assertOk()
-            ->assertSee('Paraná, ahora')
+            ->assertSeeInOrder(['Paraná,', 'ahora'])
             ->assertSee('OpenStreetMap');
     }
 
