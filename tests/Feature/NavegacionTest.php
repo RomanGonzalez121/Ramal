@@ -49,4 +49,16 @@ class NavegacionTest extends TestCase
         $this->get('/lineas')->assertSee('aria-label="En esta página"', false);
         $this->get('/api')->assertSee('aria-label="En esta página"', false);
     }
+
+    public function test_detras_de_un_proxy_con_https_las_direcciones_salen_con_https(): void
+    {
+        // Es lo que pasa en Render: el visitante usa HTTPS pero el pedido llega al contenedor por HTTP con estas cabeceras.
+        $html = $this->withHeaders(['X-Forwarded-Proto' => 'https', 'X-Forwarded-Host' => 'ramal.example.com', 'X-Forwarded-Port' => '443'])
+            ->get('/lineas')
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('href="https://ramal.example.com/lineas"', $html);
+        $this->assertStringNotContainsString('href="http://ramal.example.com', $html);
+    }
 }

@@ -18,6 +18,10 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Detrás del proxy de Render (u otro) el pedido llega por HTTP común aunque el visitante use HTTPS. Sin esto, Laravel arma
+        // todas las direcciones con http:// y el navegador bloquea los scripts por contenido mixto. Todo el tráfico del contenedor
+        // pasa por ese proxy, así que se confía en las cabeceras X-Forwarded-*.
+        $middleware->trustProxies(at: '*');
         $middleware->redirectGuestsTo(fn () => route('login'));
         $middleware->alias(['abilities' => CheckAbilities::class]);
     })
