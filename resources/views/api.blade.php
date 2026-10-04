@@ -247,4 +247,6 @@
         </div>
     </div>
 </main>
+
+@include('partials.pie')
 @endsection

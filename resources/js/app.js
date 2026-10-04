@@ -2,6 +2,7 @@ import Alpine from 'alpinejs';
 import { DURACION, EASE_OUT } from './movimiento.js';
 import { montarMapa } from './simulacion.js';
 import { registrarDocumentacion } from './api-docs.js';
+import { registrarComoFunciona } from './como-funciona.js';
 
 window.Alpine = Alpine;
 
@@ -607,6 +608,7 @@ Alpine.data('panelOperador', () => {
 });
 
 registrarDocumentacion(Alpine, { leer, guardar });
+registrarComoFunciona(Alpine);
 
 Alpine.start();
 

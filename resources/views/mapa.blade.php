@@ -31,7 +31,7 @@
 
             <div class="mt-3 flex items-end gap-3">
                 <p class="font-panel text-[4rem] font-bold leading-none text-senal" x-text="cantidad || '--'" aria-hidden="true">40</p>
-                <p class="pb-1 text-sm leading-tight text-papel/80"><span class="sr-only" x-text="cantidad"></span>colectivos en la calle.<br>Simulados, sobre calles reales.</p>
+                <p class="pb-1 text-sm leading-tight text-papel/80"><span class="sr-only" x-text="cantidad"></span>colectivos en la calle.<br><a href="{{ route('como-funciona') }}" class="font-semibold text-papel underline decoration-senal decoration-2 underline-offset-4 hover:bg-senal hover:text-asfalto">Simulados, sobre calles reales</a>.</p>
             </div>
 
             <div class="calzada-discontinua my-4 text-senal" aria-hidden="true"></div>

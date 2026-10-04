@@ -10,6 +10,7 @@
         <a class="hover:underline hover:decoration-[3px] hover:underline-offset-4" href="{{ route('mapa') }}" @if (request()->routeIs('mapa')) aria-current="page" @endif>Mapa</a>
         <a class="hidden hover:underline hover:decoration-[3px] hover:underline-offset-4 sm:inline" href="{{ route('identidad') }}" @if (request()->routeIs('identidad')) aria-current="page" @endif>Identidad</a>
         <a class="hover:underline hover:decoration-[3px] hover:underline-offset-4" href="{{ route('lineas') }}" @if (request()->routeIs('lineas')) aria-current="page" @endif>Líneas</a>
+        <a class="hidden hover:underline hover:decoration-[3px] hover:underline-offset-4 sm:inline" href="{{ route('como-funciona') }}" @if (request()->routeIs('como-funciona')) aria-current="page" @endif>Cómo funciona</a>
         <a class="hover:underline hover:decoration-[3px] hover:underline-offset-4" href="{{ route('api') }}" @if (request()->routeIs('api')) aria-current="page" @endif>API</a>
         <a class="hover:underline hover:decoration-[3px] hover:underline-offset-4" href="{{ route('operador') }}" @if (request()->routeIs('operador*', 'login')) aria-current="page" @endif>Operador</a>
         @foreach ($enlaces ?? [] as $ancla => $texto)

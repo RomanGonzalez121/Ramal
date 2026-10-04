@@ -20,6 +20,7 @@ composer dev                 # servidor, Reverb, cola, simulador y Vite, todo ju
 - `/lineas` líneas y recorridos desde la base de datos.
 - `/identidad` identidad visual y demostración del movimiento.
 - `/operador` centro de control (ingreso con la cuenta de operador de demostración; ver `database/seeders/OperadorSeeder.php`).
+- `/como-funciona` qué es simulado y qué es real, con una calculadora de llegada y el viaje de una posición hasta el mapa.
 - `/api` documentación de la API pública, con botones para probar cada consulta. El documento OpenAPI está en `/api/openapi.json` y `/api/openapi.yaml`.
 
 El mapa usa un recorte de Paraná en `resources/mapa/parana.pmtiles` (se regenera con `scripts/descargar-mapa.sh`). Si el WebSocket no está disponible, el mapa pasa solo a consultar `/api/posiciones` cada 2 segundos; con `VITE_TIEMPO_REAL=sondeo` ni lo intenta.

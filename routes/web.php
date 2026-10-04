@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\ApiDocumentacionController;
+use App\Http\Controllers\ComoFuncionaController;
 use App\Http\Controllers\IdentidadController;
 use App\Http\Controllers\LineasController;
 use App\Http\Controllers\MapaPublicoController;
@@ -19,6 +20,7 @@ use Illuminate\View\Middleware\ShareErrorsFromSession;
 Route::get('/', MapaPublicoController::class)->name('mapa');
 Route::get('/identidad', IdentidadController::class)->name('identidad');
 Route::get('/lineas', LineasController::class)->name('lineas');
+Route::get('/como-funciona', ComoFuncionaController::class)->name('como-funciona');
 Route::get('/api', [ApiDocumentacionController::class, 'pagina'])->name('api');
 Route::get('/api/openapi.yaml', [ApiDocumentacionController::class, 'yaml'])->name('api.yaml');
 Route::get('/api/openapi.json', [ApiDocumentacionController::class, 'json'])->name('api.json');

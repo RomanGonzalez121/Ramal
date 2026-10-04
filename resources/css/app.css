@@ -549,6 +549,147 @@ button:not(:disabled):not(.bus-mapa):not(.parada-mapa):active {
     font-size: 0.88em;
 }
 
+/* Cómo funciona (M10): el colectivo de juguete, el viaje de un dato y las barras de la calculadora */
+
+@keyframes demo-bus {
+    0%, 5% { transform: translateX(4px); animation-timing-function: var(--ease-in-out); }
+    22%, 27% { transform: translateX(27px); animation-timing-function: var(--ease-in-out); }
+    44%, 49% { transform: translateX(50px); animation-timing-function: var(--ease-in-out); }
+    66%, 71% { transform: translateX(73px); animation-timing-function: var(--ease-in-out); }
+    88%, 100% { transform: translateX(96px); }
+}
+
+@keyframes demo-estado-1 {
+    0%, 5% { opacity: 0; } 5.01%, 22% { opacity: 1; } 22.01%, 27% { opacity: 0; }
+    27.01%, 44% { opacity: 1; } 44.01%, 49% { opacity: 0; } 49.01%, 66% { opacity: 1; }
+    66.01%, 71% { opacity: 0; } 71.01%, 88% { opacity: 1; } 88.01%, 100% { opacity: 0; }
+}
+
+@keyframes demo-estado-2 {
+    0%, 22% { opacity: 0; } 22.01%, 27% { opacity: 1; } 27.01%, 44% { opacity: 0; }
+    44.01%, 49% { opacity: 1; } 49.01%, 66% { opacity: 0; } 66.01%, 71% { opacity: 1; }
+    71.01%, 100% { opacity: 0; }
+}
+
+@keyframes demo-estado-3 {
+    0%, 5% { opacity: 1; } 5.01%, 88% { opacity: 0; } 88.01%, 100% { opacity: 1; }
+}
+
+.demo-bus {
+    animation: demo-bus 16s linear infinite alternate;
+}
+
+.demo-estado {
+    opacity: 0;
+    animation: 16s step-end infinite alternate;
+}
+
+.demo-estado-1 { animation-name: demo-estado-1; }
+.demo-estado-2 { animation-name: demo-estado-2; }
+.demo-estado-3 { animation-name: demo-estado-3; }
+
+/* Un tramo entre dos nodos del recorrido de un dato: línea de puntos y, encima, paquetes que viajan */
+.conector {
+    position: relative;
+    display: block;
+    height: 2.75rem;
+    container-type: size;
+}
+
+.conector-linea {
+    position: absolute;
+    inset: 0 auto 0 50%;
+    width: 3px;
+    margin-left: -1.5px;
+    background: repeating-linear-gradient(180deg, var(--senal) 0 8px, transparent 8px 14px);
+}
+
+.paquete {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    width: 12px;
+    height: 12px;
+    margin-left: -6px;
+    border-radius: 50%;
+    background: var(--senal);
+    box-shadow: 0 0 0 3px var(--tablero-fondo);
+    opacity: 0;
+    animation: paquete-y 1.7s var(--ease-in-out) infinite;
+    animation-delay: var(--d, 0s);
+}
+
+.conector-corte {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    display: flex;
+    padding: 2px;
+    transform: translate(-50%, -50%);
+    background: var(--tablero-fondo);
+    color: var(--senal);
+}
+
+.conector.cortado .paquete {
+    display: none;
+}
+
+.conector.cortado .conector-linea {
+    opacity: 0.35;
+}
+
+@keyframes paquete-y {
+    0% { transform: translateY(0); opacity: 0; }
+    15%, 85% { opacity: 1; }
+    100% { transform: translateY(calc(100cqh - 12px)); opacity: 0; }
+}
+
+@keyframes paquete-x {
+    0% { transform: translateX(0); opacity: 0; }
+    15%, 85% { opacity: 1; }
+    100% { transform: translateX(calc(100cqw - 12px)); opacity: 0; }
+}
+
+@media (min-width: 1024px) {
+    .conector {
+        display: flex;
+        align-self: center;
+        width: 3.5rem;
+        height: 12px;
+        container-type: inline-size;
+    }
+
+    .conector-linea {
+        inset: 50% 0 auto 0;
+        width: auto;
+        height: 3px;
+        margin: -1.5px 0 0;
+        background: repeating-linear-gradient(90deg, var(--senal) 0 8px, transparent 8px 14px);
+    }
+
+    .paquete {
+        top: 0;
+        left: 0;
+        margin-left: 0;
+        animation-name: paquete-x;
+    }
+}
+
+/* Las barras de la calculadora de llegada: cada parte con su propia textura, para no depender solo del color */
+.tramo-andar { background: var(--papel); }
+
+.tramo-paradas {
+    background: repeating-linear-gradient(45deg, var(--papel) 0 3px, transparent 3px 8px), color-mix(in srgb, var(--papel) 14%, var(--asfalto));
+}
+
+.tramo-desvio {
+    background: radial-gradient(var(--senal) 1.7px, transparent 2.2px) 0 0 / 8px 8px, color-mix(in srgb, var(--senal) 22%, var(--asfalto));
+}
+
+.tramo-falla {
+    background: repeating-linear-gradient(-45deg, var(--senal) 0 6px, var(--asfalto) 6px 12px);
+}
+
 /* Pantalla de ingreso: los elementos entran de a uno, una sola vez, con 60 ms entre cada uno */
 @keyframes entra-campo {
     from { transform: translateY(10px); opacity: 0; }
@@ -627,6 +768,19 @@ button:not(:disabled):not(.bus-mapa):not(.parada-mapa):active {
 }
 
 @media (prefers-reduced-motion: reduce) {
+    .demo-bus,
+    .paquete {
+        animation: none;
+    }
+
+    .demo-bus { transform: translateX(50px); }
+
+    .demo-estado { animation: none; }
+    .demo-estado-1 { opacity: 1; }
+
+    .paquete { opacity: 1; }
+    .conector .paquete:nth-of-type(2) { display: none; }
+
     .parpadeo-panel,
     .pulso-parada,
     .entra-fila,
