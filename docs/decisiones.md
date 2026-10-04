@@ -243,3 +243,9 @@ Pendiente de sentir en pantalla (no se puede juzgar solo leyendo el código): la
 - **Lo que se acepta perder:** tokens de la API, sesiones e historial viejo en cada despertar. Para una demo de portfolio es razonable; si no lo fuera, se vuelve a MySQL externo cambiando una variable.
 - **Se descartó:** MySQL o MariaDB adentro del mismo contenedor (el plan gratuito tiene 512 MB de memoria y un servidor de base consume buena parte) y adaptar la app a PostgreSQL (expira a los 30 días, que era justo el problema).
 - **Medido:** migrar, cargar y rehacer 30 minutos de historial tarda 25 segundos en esta máquina, y la web responde igual de rápido sobre SQLite. En Render, con mucha menos CPU, va a tardar más; no se pudo medir.
+
+## M11-4. PHP 8.4 como mínimo
+
+- **Problema:** el primer arranque del contenedor falló con "Composer detected issues in your platform": las dependencias de Symfony 8.1 (que trae Laravel 13) piden PHP 8.4.1 o más, pero `composer.json`, el `Dockerfile` y el CI decían 8.3.
+- **Por qué no se vio antes:** la máquina de desarrollo corre PHP 8.5, y el contenedor y el CI nunca se habían construido de verdad.
+- **Se eligió:** declarar `"php": "^8.4"` (así la restricción es la real y Composer avisa al instalar, no al ejecutar), y usar `php:8.4-apache` en el contenedor y 8.4 en la integración continua.

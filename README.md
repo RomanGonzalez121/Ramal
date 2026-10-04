@@ -6,7 +6,7 @@ Estado: módulos M0 a M10 hechos; M11 (calidad y publicación) en curso. Ver `CL
 
 ## Probarlo
 
-Requiere PHP 8.3 o más, Composer, Node y MySQL 8.4 con las bases `ramal` y `ramal_test`.
+Requiere PHP 8.4 o más, Composer, Node y MySQL 8.4 con las bases `ramal` y `ramal_test`.
 
 ```bash
 composer install

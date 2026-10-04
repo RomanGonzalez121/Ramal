@@ -22,7 +22,7 @@ Regla central: **se simula el mundo, no la tecnología.** El sitio lo dice abier
 
 ## 3. Stack (fijo, no cambiar)
 
-- Laravel 13, PHP 8.3, MySQL. Antes de M1: comparar tipos geográficos de MySQL contra GeoJSON con distancias en PHP, elegir uno y anotar el motivo en `docs/decisiones.md`.
+- Laravel 13, PHP 8.4, MySQL. Antes de M1: comparar tipos geográficos de MySQL contra GeoJSON con distancias en PHP, elegir uno y anotar el motivo en `docs/decisiones.md`.
 - Blade, Tailwind CSS 4, Alpine.js.
 - Mapa: MapLibre GL JS + teselas vectoriales Protomaps en un archivo PMTiles alojado por nosotros (recorte de Paraná). Estilo propio con la paleta, uno por tema.
 - Tiempo real: Laravel Reverb (servidor) y Laravel Echo (navegador).

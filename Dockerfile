@@ -28,7 +28,7 @@ COPY . .
 RUN composer dump-autoload --no-dev --optimize
 
 # ---------- 3. La aplicación ----------
-FROM php:8.3-apache AS app
+FROM php:8.4-apache AS app
 
 RUN docker-php-ext-install pdo_mysql pcntl \
     && a2enmod rewrite headers expires deflate \
