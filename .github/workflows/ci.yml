@@ -75,3 +75,18 @@ jobs:
       # Compila los assets, instala las dependencias de producción y arma la imagen: si algo del despliegue se rompe, se ve acá.
       - name: Construir la imagen
         run: docker build -t ramal .
+
+      # Es el arranque real del despliegue gratuito: base SQLite vacía, migraciones, líneas, relleno de historial y simulador.
+      # Se hace con las dependencias de producción (sin Faker ni PHPUnit), que es justo donde fallan las cosas que en desarrollo andan.
+      - name: El contenedor arranca con SQLite y responde
+        run: |
+          docker run -d --name ramal -p 8080:80             -e APP_KEY="base64:$(openssl rand -base64 32)" -e APP_URL=http://localhost:8080             -e DB_CONNECTION=sqlite -e SESSION_DRIVER=database -e CACHE_STORE=database -e QUEUE_CONNECTION=database             -e BROADCAST_CONNECTION=log -e RAMAL_SIEMPRE_EN_SERVICIO=true -e RAMAL_RELLENO_MINUTOS=5 ramal
+          for i in $(seq 1 60); do curl -fs http://localhost:8080/up > /dev/null && break; sleep 3; done
+          curl -fs http://localhost:8080/up > /dev/null || { docker logs ramal; exit 1; }
+          for i in $(seq 1 40); do
+            curl -fs http://localhost:8080/api/v1/estado | grep -q '"colectivos_en_servicio":40' && break
+            sleep 3
+          done
+          curl -fs http://localhost:8080/api/v1/estado | grep -q '"colectivos_en_servicio":40' || { docker logs ramal; exit 1; }
+          curl -fs http://localhost:8080/ > /dev/null
+          if docker logs ramal 2>&1 | grep -iE "production.ERROR|Fatal error|Uncaught"; then exit 1; fi

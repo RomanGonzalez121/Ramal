@@ -48,6 +48,15 @@ class CiudadTest extends TestCase
         $this->assertSame(40, Colectivo::distinct('interno')->count('interno'));
     }
 
+    public function test_los_nombres_de_los_choferes_son_distintos_y_siempre_los_mismos(): void
+    {
+        $nombres = Chofer::orderBy('legajo')->pluck('nombre')->all();
+
+        $this->assertCount(40, array_unique($nombres), 'Ningún nombre se repite');
+        $this->assertSame('Marcelo Gómez', $nombres[0]);
+        $this->assertSame('Silvia Acosta', $nombres[1]);
+    }
+
     public function test_cada_linea_tiene_horario_para_los_tres_tipos_de_dia(): void
     {
         $this->assertSame(15, Horario::count());

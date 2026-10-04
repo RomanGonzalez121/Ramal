@@ -58,7 +58,7 @@ class CiudadSeeder extends Seeder
 
                 for ($n = 1; $n <= self::COLECTIVOS_POR_LINEA; $n++) {
                     $chofer = Chofer::create([
-                        'nombre' => fake('es_AR')->name(),
+                        'nombre' => $this->nombreDeChofer($legajo),
                         'legajo' => (string) ++$legajo,
                     ]);
 
@@ -127,5 +127,17 @@ class CiudadSeeder extends Seeder
         }
 
         return json_decode(file_get_contents($ruta), true, flags: JSON_THROW_ON_ERROR);
+    }
+
+    /**
+     * Los nombres de los choferes son inventados y siempre los mismos (no dependen de Faker, que es una herramienta de
+     * desarrollo y no está en producción). Con 10 nombres y 7 apellidos, ningún par se repite en los primeros 70 choferes.
+     */
+    private function nombreDeChofer(int $indice): string
+    {
+        $nombres = ['Marcelo', 'Silvia', 'Raúl', 'Graciela', 'Diego', 'Norma', 'Hugo', 'Claudia', 'Sergio', 'Mónica'];
+        $apellidos = ['Acosta', 'Benítez', 'Cabrera', 'Domínguez', 'Escobar', 'Fernández', 'Gómez'];
+
+        return $nombres[$indice % count($nombres)].' '.$apellidos[$indice % count($apellidos)];
     }
 }
